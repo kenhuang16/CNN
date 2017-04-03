@@ -1,20 +1,20 @@
-## Project: Build a Traffic Sign Recognition Program
+# Project: Build a Traffic Sign Recognition Program
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
 ----
-### Overview
+## Overview
 
 In this project, a convolutional neural network (CNN) was build to classify traffic signs. The [data](https://d17h27t6h515a5.cloudfront.net/topher/2016/November/581faac4_traffic-signs-data/traffic-signs-data.zip) used in training and testing this model, which are provided by Udacity, come from the [German Traffic Sign Dataset](http://benchmark.ini.rub.de/?section=gtsrb&subsection=dataset). It is a pickled data set in which all the images have been resized to 32x32.
 
 ____
-#### Final result
+## Final result
 
 The CNN structure is: Input -> conv -> relu -> conv -> relu -> pooling -> conv -> relu -> conv -> relu -> pooling -> conv -> relu -> conv -> relu -> pooling -> dropout -> fully-connected -> relu -> dropout -> fully-connected - relu -> output. The accuracies on the training, validaton and testing data set are **0.9938**, **0.9960** and **0.9758** respectively.
 
 The projected was written in Jupyter notebook, which can be found at [GermanTrafficSign_Tensorflow.ipynb](./GermanTrafficSign_Tensorflow.ipynb). The corresponding html file can be found at [GermanTrafficSign_Tensorflow.html](./GermanTrafficSign_Tensorflow.html).
 
 ----
-### Working on AWS GPU
+## Working on AWS GPU
 
 1. You will need an AWS account with permission to use g2-2xlarge.
 
