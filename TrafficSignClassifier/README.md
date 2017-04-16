@@ -11,7 +11,7 @@ In this project, a convolutional neural network (CNN) was build to classify traf
 
 The CNN structure is: Input -> conv -> relu -> conv -> relu -> pooling -> conv -> relu -> conv -> relu -> pooling -> conv -> relu -> conv -> relu -> pooling -> dropout -> fully-connected -> relu -> dropout -> fully-connected - relu -> output. The accuracies on the training, validaton and testing data set are **0.9938**, **0.9960** and **0.9758** respectively.
 
-The projected was written in Jupyter notebook, which can be found at [GermanTrafficSign_Tensorflow.ipynb](./GermanTrafficSign_Tensorflow.ipynb). The corresponding html file can be found at [GermanTrafficSign_Tensorflow.html](./GermanTrafficSign_Tensorflow.html).
+The projected was written in Jupyter notebook, which can be found at [GermanTrafficSign_Tensorflow.ipynb](./GermanTrafficSign_Tensorflow.ipynb).
 
 ## Working on AWS GPU
 
