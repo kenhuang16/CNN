@@ -1,2 +1,5 @@
 *.ipynb
 *.pyc
+.idea
+*.pdf
+*.x86_64
