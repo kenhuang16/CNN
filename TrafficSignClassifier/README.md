@@ -1,7 +1,9 @@
 # Project: Build a Traffic Sign Recognition Program
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
-Jun Zhu  18.01.2017
+Jun Zhu
+
+![alt text](highlight1.png)
 
 ## Overview
 
