@@ -38,7 +38,7 @@ from keras.models import load_model
 import h5py
 from keras import __version__ as keras_version
 
-from load_data import preprocess
+from load_data import Preprocessor
 
 
 sio = socketio.Server()
@@ -77,7 +77,7 @@ controller.set_desired(set_speed)
 def telemetry(sid, data):
     if data:
         # The current steering angle of the car
-        steering_angle = data["steering_angle"]
+        steering_angle = float(data["steering_angle"])
         # The current throttle of the car
         throttle = data["throttle"]
         # The current speed of the car
@@ -87,10 +87,17 @@ def telemetry(sid, data):
         image = Image.open(BytesIO(base64.b64decode(imgString)))
 
         # Different from the original version
-        image_array = preprocess(np.asarray(image))
+        preprocess_params = {
+            'channels': 'hsv',
+            'size': 1.0
+        }
+        preprocessor = Preprocessor(preprocess_params=preprocess_params, drive=True)
+        image_array, _ = preprocessor.fit(np.asarray(image))
         transformed_image_array = image_array[None, :, :, :]
         steering_angle = float(model.predict(transformed_image_array, batch_size=1))
         throttle = 1
+        # if float(speed) > 15:
+        #     throttle = -1
 
         # throttle = controller.update(float(speed))
         print(steering_angle, throttle)
