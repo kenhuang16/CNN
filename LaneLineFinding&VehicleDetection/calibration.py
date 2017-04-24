@@ -1,0 +1,108 @@
+#!/usr/bin/python
+"""
+Calibrate camera and undistort images.
+"""
+import numpy as np
+import cv2
+import glob
+import pickle
+
+from my_plot import double_plot
+
+
+def calibrate_camera(chess_board_images, pattern_size=(None, None),
+                     output="camera_cali.pkl", show_chess_board=True):
+    """Calibrate camera
+
+    Parameters
+    ----------
+    chess_board_images: list of strings
+        List of chess board file names.
+    pattern_size: tuple, 2x1
+        Number of inner corners per a chessboard row and column.
+    output: string
+        Pickle file for storing the result.
+    show_chess_board: Boolean
+        True for showing each result of finding corners.
+    """
+    pts_row = pattern_size[0]
+    pts_col = pattern_size[1]
+
+    # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+    objp = np.zeros((pts_col*pts_row, 3), np.float32)
+    objp[:, :2] = np.mgrid[0:pts_row, 0:pts_col].T.reshape(-1, 2)  # x and y
+
+    # Arrays to store object points and image points from all the images.
+    obj_points = []  # 3d points in real world space
+    img_points = []  # 2d points in image plane
+
+    # Step through the list and search for chessboard corners
+    for idx, fname in enumerate(chess_board_images):
+        img = cv2.imread(fname)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Find the chessboard corners
+        retval, corners = cv2.findChessboardCorners(gray, (pts_row, pts_col), None)
+        print('{}: {}'.format(fname, retval))
+
+        if retval is True:
+            obj_points.append(objp)
+            img_points.append(corners)
+
+            if show_chess_board is True:
+                cv2.drawChessboardCorners(img, (pts_row, pts_col), corners, retval)
+                cv2.imshow('img', img)
+                cv2.waitKey(500)
+
+    if show_chess_board is True:
+        cv2.destroyAllWindows()
+
+    camera_cali = dict()
+    camera_cali["obj_points"] = obj_points
+    camera_cali["img_points"] = img_points
+    with open(output, "wb") as f:
+        pickle.dump(camera_cali, f)
+    print("Calibration of the camera was saved in {}.".format(output))
+
+
+def undistort_image(image, obj_points, img_points):
+    """Undistort an image
+
+    parameters
+    ----------
+    image: numpy.ndarray()
+        Image array.
+    obj_points: List of numpy.ndarray. Each array has the shape
+                (N, 3), where N is the number of points.
+        List of 3d points in the real world space of each image.
+    img_points: List of numpy.ndarray. Each array has the shape
+                (N, 1, 2), where N is the number of points.
+        List of 2d points in the image plane of each each image
+    """
+    retval, camera_matrix, dist_coeffs, rvecs, tvecs = \
+        cv2.calibrateCamera(obj_points, img_points, image.shape[:2],
+                            None, None)
+
+    undistorted = cv2.undistort(
+        image, camera_matrix, dist_coeffs, None, camera_matrix)
+
+    return undistorted
+
+
+if __name__ == "__main__":
+    chess_board_images_ = glob.glob('camera_cal/calibration*.jpg')
+    pattern_size_ = (9, 6)
+    camera_cali_file = "camera_cali.pkl"
+
+    calibrate_camera(
+        chess_board_images_, pattern_size=pattern_size_, output=camera_cali_file)
+
+    test_img = cv2.imread("camera_cal/calibration1.jpg")
+
+    with open(camera_cali_file, "rb") as fp:
+        camera_cali_ = pickle.load(fp)
+    test_img_undistorted = undistort_image(
+        test_img, camera_cali_["obj_points"], camera_cali_["img_points"])
+
+    double_plot(test_img, test_img_undistorted,
+                ('original', 'undistorted', 'camera calibration'), output='')
