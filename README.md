@@ -9,7 +9,7 @@ For details, please check the [TrafficSignClassifier](./TrafficSignClassifier) f
 
 ## BehaviorCloning
 
-In this project, the motion of the car in the simulator will be cloned by convolutional neural network (CNN).
+In this project, the motion of the car in the simulator will be cloned by convolutional neural network (CNN) - an implementation of ["End to end learning for self-driving cars"](https://arxiv.org/abs/1604.07316).
 
 For details, please check the [BehaviorCloning](./BehaviorCloning) folder.
 
