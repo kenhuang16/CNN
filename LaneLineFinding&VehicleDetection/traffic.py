@@ -31,7 +31,6 @@ class TrafficVideo(object):
     Attributes
     ----------
 
-
     """
     def __init__(self, input, camera_cali_file=None, perspective_trans_file=None,
                  thresh_params=None, max_poor_fit_time=0.5, car_classifier=None):

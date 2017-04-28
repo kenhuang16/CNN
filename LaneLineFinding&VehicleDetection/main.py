@@ -16,7 +16,7 @@ from image_transform import calibrate_perspective_trans, perspective_trans
 import matplotlib.pyplot as plt
 from my_plot import double_plot
 
-from traffic_classifiers import CarClassifier
+from car_classifier import CarClassifier
 from parameters import project_video, thresh_params
 
 
