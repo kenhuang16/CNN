@@ -17,30 +17,16 @@ import matplotlib.pyplot as plt
 from my_plot import double_plot
 
 from traffic_classifiers import CarClassifier
+from parameters import project_video, thresh_params
 
 
-w_img = 1280
-h_img = 720
+my_video = project_video
 
-# input = './videos/test_video.mp4'
-# output = './videos/test_video_processed.mp4'
-
-input = './videos/project_video.mp4'
-output = './videos/project_video_processed.mp4'
-i_frame = 500  # Used for perspective transformation calibration
-src = np.float32([[0, h_img], [570, 450], [708, 450], [w_img, h_img]])
-dst = np.float32([[0, h_img], [0, 0], [w_img, 0], [w_img, h_img]])
-
-# input = './videos/challenge_video.mp4'
-# output = './videos/challenge_video_processed.mp4'
-# i_frame = 354
-# src = np.float32([[270, 720], [585, 500], [750, 500], [1050, 720]])
-# dst = np.float32([[270, 720], [270, 0], [1050, 0], [1050, 720]])
-
-# input = './videos/harder_challenge_video.mp4'
-# output = './videos/harder_challenge_video_processed.mp4'
-# src = np.float32([[240, 700], [415, 580], [840, 580], [985, 700]])
-# dst = np.float32([[240, 700], [240, 300], [985, 300], [985, 700]])
+input = my_video['input']
+output = my_video['output']
+i_frame = my_video['i_frame']
+source_points = my_video['src']
+distortion_points = my_video['dst']
 
 # -----------------------------------------------------------------------------
 # Camera calibration
@@ -53,7 +39,7 @@ if not os.path.isfile(camera_cali_file):
 
 # Apply un-distortion on a test image
 clip = VideoFileClip(input)
-test_img = clip.get_frame(i_frame / 25.0)
+test_img = clip.get_frame(my_video['i_frame'] / 25.0)
 # misc.imsave('test_images/test_img_perspective_trans.png', test_img)
 with open(camera_cali_file, "rb") as fp:
     camera_cali = pickle.load(fp)
@@ -63,32 +49,19 @@ test_img_undistorted = undistort_image(
 # -----------------------------------------------------------------------------
 # Perspective transformation
 perspective_trans_file = "perspective_trans.pkl"
-calibrate_perspective_trans(src, dst, output=perspective_trans_file)
+calibrate_perspective_trans(source_points, distortion_points,
+                            output=perspective_trans_file)
 
 # Apply perspective transformation on a test image
 warped = perspective_trans(test_img_undistorted, perspective_trans_file)
 
 # Visualize the transformation
-cv2.polylines(test_img_undistorted, np.int32([src]), 1, (255, 255, 0), thickness=4)
-cv2.polylines(warped, np.int32([dst]), 1, (255, 255, 0), thickness=4)
+cv2.polylines(test_img_undistorted, np.int32([source_points]),
+              1, (255, 255, 0), thickness=4)
+cv2.polylines(warped, np.int32([distortion_points]),
+              1, (255, 255, 0), thickness=4)
 double_plot(test_img_undistorted, warped,
             ('original', 'warped', 'perspective transformation'), output='')
-
-# -----------------------------------------------------------------------------
-# Parameters for thresh-hold operations
-thresh_params = [
-    {'type': 'gradient', 'channel': 's', 'direct': 'x', 'thresh': (20, 100)},
-    {'type': 'color', 'channel': 's', 'direct': None, 'thresh': (100, 255)},
-    {'type': 'color', 'channel': 'gray', 'direct': None, 'thresh': (190, 255)}
-]
-
-# -----------------------------------------------------------------------------
-# Train a car classifier
-classifier_file = 'car_classifier.pkl'
-
-if not os.path.isfile(classifier_file):
-    print("Run traffic_classifiers.py first to train the classifier!")
-    os.system('python3 traffic_classifiers.py')
 
 # -----------------------------------------------------------------------------
 # Process the video

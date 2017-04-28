@@ -24,9 +24,6 @@ DEBUG = False
 DEBUG_LANELINE = False
 TIME_MONITOR = False
 
-SEARCH_LANELINE = False
-SEARCH_CAR = True
-
 
 class TrafficVideo(object):
     """TrafficVideo class
@@ -81,14 +78,20 @@ class TrafficVideo(object):
 
         self.max_poor_fit_time = max_poor_fit_time
 
-        self.search_lanelines = True
-        self.search_cars = True
+        if thresh_params is not None:
+            self._search_laneline = True
+        else:
+            self._search_laneline = False
 
-        try:
-            with open(car_classifier, "rb") as fp:
-                self.car_cls = pickle.load(fp)
-        except IOError:
-            print("Warning: car classifier is missing!")
+        if car_classifier is not None:
+            try:
+                with open(car_classifier, "rb") as fp:
+                    self.car_cls = pickle.load(fp)
+            except IOError:
+                print("Please train and pickle a classifier first!")
+            self._search_car = True
+        else:
+            self._search_car = False
 
         self.direction_text_string = ''
 
@@ -160,7 +163,7 @@ class TrafficVideo(object):
         undistorted = cv2.undistort(
             img, self.camera_matrix, self.dist_coeffs, None, self.camera_matrix)
 
-        if SEARCH_LANELINE is True:
+        if self._search_laneline is True:
             t0 = time.time()
 
             processed = self._search_lanelines(undistorted)
@@ -172,7 +175,7 @@ class TrafficVideo(object):
         else:
             processed = np.copy(undistorted)
 
-        if SEARCH_CAR is True:
+        if self._search_car is True:
             t0 = time.time()
 
             car_windows = self._search_cars(undistorted)
