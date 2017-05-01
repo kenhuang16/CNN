@@ -46,7 +46,8 @@ DEBUG = False
 
 class CarClassifier(object):
     """A car classifier object"""
-    def __init__(self, shape=(64, 64), classifier=None, lbp=True, hog=True,
+    def __init__(self, shape=(64, 64), classifier=None, color_space='GRAY',
+                 lbp=True, hog=True,
                  hog_orient=9, hog_pix_per_cell=(8, 8), hog_cell_per_block=(1, 1),
                  lbp_n_neighbors=8, lbp_radius=2):
         """Initialization
@@ -57,6 +58,9 @@ class CarClassifier(object):
             Image shape in the training/testing data set.
         classifier: object
             A classifier instance, e.g. LinearSVC, DecisionTreeClassifier
+        color_space: string
+            Color space to use. Valid options are
+            'GRAY' (default), 'RGB', 'HSV', 'HLS', 'YUV', 'YCrCb'.
         hog: Boolean
             True for including HOG features.
         lbp: Boolean
@@ -77,6 +81,8 @@ class CarClassifier(object):
             self.cls = LinearSVC()
         else:
             self.cls = classifier
+
+        self._color_space = color_space
 
         # scaler is an attribute since it will be used by both
         # the train() and predict() methods.
@@ -101,6 +107,71 @@ class CarClassifier(object):
 
         self.feature_shape = None
 
+    def _change_colorspace(self, img):
+        """Convert the color space of an image
+
+        Parameters
+        ----------
+        img: numpy.ndarray
+            Image array.
+
+        Returns
+        -------
+        New image array.
+        """
+        if len(img.shape) < 3:
+            raise ValueError("A color image is required!")
+
+        # apply color conversion if other than 'RGB'
+        if self._color_space == 'GRAY':
+            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        elif self._color_space == 'RGB':
+            new_img = np.copy(img)
+        elif self._color_space == 'HSV':
+            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        elif self._color_space == 'LUV':
+            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2LUV)
+        elif self._color_space == 'HLS':
+            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
+        elif self._color_space == 'YUV':
+            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+        elif self._color_space == 'YCrCb':
+            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+        else:
+            raise ValueError("Unknown color space!")
+
+        return new_img
+
+    def _hog(self, img):
+        """Extract the HOG features from an image"""
+        if DEBUG is True:
+            # The run time when visualise=True is much longer!!!
+            hog_features, hog_image = skimage_hog(
+                img, orientations=self._hog_orient,
+                pixels_per_cell=self._hog_pix_per_cell,
+                cells_per_block=self._hog_cell_per_block,
+                transform_sqrt=False,
+                visualise=True,
+                feature_vector=False)
+        else:
+            hog_image = None
+            hog_features = skimage_hog(
+                img, orientations=self._hog_orient,
+                pixels_per_cell=self._hog_pix_per_cell,
+                cells_per_block=self._hog_cell_per_block,
+                transform_sqrt=False,
+                visualise=False,
+                feature_vector=False)
+
+        return hog_features, hog_image
+
+    def _lbp(self, img):
+        """Extract the LBP features from an image"""
+        lbp_img = skimage_lbp(
+            img, self._lbp_n_neighbors, self._lbp_radius)
+
+        return lbp_img
+
     def extract(self, img, window_shape=None, sliding_step=None):
         """
         Extract features from an image.
@@ -123,14 +194,14 @@ class CarClassifier(object):
         windows: list of ((x0, y0), (x1, y1))
             Coordinates of the sliding windows.
 
+        Note:
+        The HOG feature extraction is applied to the whole image. During
+        the window sliding, only slicing is needed. However, although
+        the LBP feature extraction is also applied to the whole image,
+        during the window sliding, histogram is still needed after
+        slicing.
         """
         assert img.dtype == np.uint8
-
-        # LBP applies to a grayscale image
-        if len(img.shape) == 3:
-            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        else:
-            img_gray = np.copy(img)
 
         # Set default values for window_shape and sliding_step
         if window_shape is None:
@@ -140,6 +211,9 @@ class CarClassifier(object):
 
         if DEBUG is True:
             print("Shape of the original image: {}".format(img.shape))
+
+        # Change the color space
+        img_processed = self._change_colorspace(img)
 
         # Scaling factor
         # The image should be scaled before feature extraction in order
@@ -152,12 +226,12 @@ class CarClassifier(object):
 
         if scaling_factor[0] != 1.0 or scaling_factor[1] != 1.0:
             # Scale the image.
-            img_shape = img_gray.shape
-            img_gray = cv2.resize(
-                img_gray, (np.int(img_shape[1] / scaling_factor[1]),
-                           np.int(img_shape[0] / scaling_factor[0])))
+            img_processed = cv2.resize(
+                img_processed,
+                (np.int(img_processed.shape[1] / scaling_factor[1]),
+                 np.int(img_processed.shape[0] / scaling_factor[0])))
         else:
-            img_gray = np.copy(img_gray)
+            img_processed = np.copy(img_processed)
 
         #
         # Extract features from the whole image first.
@@ -166,41 +240,43 @@ class CarClassifier(object):
         #
 
         # Extract the HOG features.
-        hog_features = None
-        hog_image = None
+        hog_features = []
+        hog_imgs = []
         hog_times = []
         if self.hog is True:
             t0 = time.time()
 
-            if DEBUG is True:
-                # The run time when visualise=True is much longer!!!
-                hog_features, hog_image = skimage_hog(
-                    img_gray, orientations=self._hog_orient,
-                    pixels_per_cell=self._hog_pix_per_cell,
-                    cells_per_block=self._hog_cell_per_block,
-                    transform_sqrt=False,
-                    visualise=True,
-                    feature_vector=False)
+            if len(img_processed.shape) == 2:
+                # For gray scale image
+                hog_features_single_channel, hog_img = self._hog(img_processed)
+                hog_features.append(hog_features_single_channel)
+                hog_imgs.append(hog_img)
             else:
-                hog_features = skimage_hog(
-                    img_gray, orientations=self._hog_orient,
-                    pixels_per_cell=self._hog_pix_per_cell,
-                    cells_per_block=self._hog_cell_per_block,
-                    transform_sqrt=False,
-                    visualise=False,
-                    feature_vector=False)
+                # For color image
+                for i in range(3):
+                    hog_features_single_channel, hog_img = \
+                        self._hog(img_processed[:, :, i])
+                    hog_features.append(hog_features_single_channel)
+                    hog_imgs.append(hog_img)
 
             hog_times.append(time.time() - t0)
 
         # Extract the LBP features.
         # Histogram has not been applied here!
-        lbp_img = None
+        lbp_imgs = []
         lbp_times = []
         if self.lbp is True:
             t0 = time.time()
 
-            lbp_img = skimage_lbp(
-                img_gray, self._lbp_n_neighbors, self._lbp_radius)
+            if len(img_processed.shape) == 2:
+                # For gray scale image
+                lbp_img = self._lbp(img_processed)
+                lbp_imgs.append(lbp_img)
+            else:
+                # For color image
+                for i in range(3):
+                    lbp_img = self._lbp(img_processed[:, :, i])
+                    lbp_imgs.append(lbp_img)
 
             lbp_times.append(time.time() - t0)
 
@@ -215,10 +291,10 @@ class CarClassifier(object):
 
         y0_window = 0
         y0_window_origin = 0
-        while (y0_window + self.shape[0]) <= img_gray.shape[0]:
+        while (y0_window + self.shape[0]) <= img_processed.shape[0]:
             x0_window = 0
             x0_window_origin = 0
-            while (x0_window + self.shape[1]) <= img_gray.shape[1]:
+            while (x0_window + self.shape[1]) <= img_processed.shape[1]:
                 combined_features = []
 
                 # Extract HOG features of the sliding window
@@ -228,18 +304,21 @@ class CarClassifier(object):
                     hog_x0 = x0_window // self._hog_pix_per_cell[0]
                     hog_x1 = (x0_window + self.shape[1]) // self._hog_pix_per_cell[0] - 1
 
-                    combined_features.append(
-                        hog_features[hog_y0:hog_y1, hog_x0:hog_x1].ravel())
+                    for channel in hog_features:
+                        combined_features.append(
+                            channel[hog_y0:hog_y1, hog_x0:hog_x1].ravel())
 
                 # Extract LBP features of the sliding window
                 if self.lbp is True:
                     t0 = time.time()
 
-                    combined_features.append(
-                        np.histogram(lbp_img[y0_window:(y0_window + self.shape[0]),
-                                             x0_window:(x0_window + self.shape[1])],
-                                     bins=2**self._lbp_n_neighbors,
-                                     range=(0, 2**self._lbp_n_neighbors))[0])
+                    for channel in lbp_imgs:
+                        combined_features.append(
+                            np.histogram(
+                                channel[y0_window:(y0_window + self.shape[0]),
+                                        x0_window:(x0_window + self.shape[1])],
+                                bins=2 ** self._lbp_n_neighbors,
+                                range=(0, 2 ** self._lbp_n_neighbors))[0])
 
                     if DEBUG is True:
                         lbp_times.append(time.time() - t0)
@@ -247,31 +326,43 @@ class CarClassifier(object):
                 window_features.append(np.concatenate(combined_features))
 
                 windows_.append(((x0_window_origin,
-                                 y0_window_origin),
+                                  y0_window_origin),
                                 (x0_window_origin + window_shape[1],
                                  y0_window_origin + window_shape[0])))
 
                 if DEBUG is True:
                     # Visualize the hog image and features
                     font_size = 16
+                    num_hog_channels = 0  # For convenience of LBP visualization
+                    index_channel = 2  # Only one channel will be visualized
+
+                    original_window_image = \
+                        img[y0_window_origin:y0_window_origin + window_shape[0],
+                            x0_window_origin:x0_window_origin + window_shape[1]]
+
                     if self.hog is True:
                         print("Time for HOG algorithm: {} s".
                               format(sum(hog_times)))
 
-                        fig, ax = plt.subplots(1, 3, figsize=(12, 4.5))
+                        fig, ax = plt.subplots(1, 3, figsize=(12, 5))
 
-                        ax[0].imshow(img_gray[
-                            y0_window_origin:y0_window_origin + window_shape[0],
-                            x0_window_origin:x0_window_origin + window_shape[1]])
+                        ax[0].imshow(original_window_image)
                         ax[0].set_title('Original image', fontsize=font_size)
 
+                        # Only one channel is visualized here.
+                        num_hog_channels = len(hog_imgs)
                         ax[1].imshow(
-                            hog_image[y0_window: y0_window + self.shape[0],
-                                      x0_window: x0_window + self.shape[1]])
-                        ax[1].set_title('HOG image', fontsize=font_size)
+                            hog_imgs[index_channel]
+                            [y0_window: y0_window + self.shape[0],
+                             x0_window: x0_window + self.shape[1]])
+                        ax[1].set_title('HOG image ch-{}'.format(index_channel),
+                                        fontsize=font_size)
 
-                        ax[2].plot(combined_features[0])
+                        ax[2].plot(combined_features[index_channel])
                         ax[2].set_title('hog features', fontsize=font_size)
+
+                        plt.suptitle("HOG feature extraction on {} color space".
+                                     format(self._color_space), fontsize=font_size)
 
                         plt.tight_layout()
                         plt.show()
@@ -281,19 +372,19 @@ class CarClassifier(object):
                         print("Time for LBP algorithm: {} s".
                               format(sum(lbp_times)))
 
-                        fig, ax = plt.subplots(1, 3, figsize=(12, 4.5))
-                        ax[0].imshow(img_gray[
-                            y0_window_origin:y0_window_origin + window_shape[0],
-                            x0_window_origin:x0_window_origin + window_shape[1]])
+                        fig, ax = plt.subplots(1, 3, figsize=(12, 5))
+                        ax[0].imshow(original_window_image)
                         ax[0].set_title('Original image', fontsize=font_size)
 
-                        ax[1].imshow(lbp_img)
-                        ax[1].set_title('LBP image', fontsize=font_size)
-                        if self.hog is True:
-                            ax[2].plot(combined_features[1])
-                        else:
-                            ax[2].plot(combined_features[0])
+                        ax[1].imshow(lbp_imgs[index_channel])
+                        ax[1].set_title('LBP image ch-{}'.format(index_channel),
+                                        fontsize=font_size)
+
+                        ax[2].plot(combined_features[num_hog_channels + index_channel])
                         ax[2].set_title('LBP features', fontsize=font_size)
+
+                        plt.suptitle("LBP feature extraction on {} color space".
+                                     format(self._color_space), fontsize=font_size)
 
                         plt.tight_layout()
                         plt.show()
@@ -417,7 +508,14 @@ if __name__ == "__main__":
     cls = LinearSVC(C=0.0001)
     # cls = DecisionTreeClassifier(max_depth=10)
     # cls = RandomForestClassifier(n_estimators=20, max_depth=6)
-    car_cls = CarClassifier(classifier=cls)
+
+    # The critical hyper-parameter here is color_space='YCrCb'
+    # A high accuracy (> 99%) is important here to reduce the
+    # false-positive
+    car_cls = CarClassifier(
+        classifier=cls, color_space='YCrCb',
+        hog_orient=9, hog_pix_per_cell=(8, 8), hog_cell_per_block=(2, 2),
+        lbp_n_neighbors=8, lbp_radius=2)
 
     car_cls.train(car_files, noncar_files, max_images=None)
 
