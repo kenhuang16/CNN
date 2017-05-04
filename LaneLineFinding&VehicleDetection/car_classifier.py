@@ -40,16 +40,17 @@ from sklearn.model_selection import cross_val_score
 from skimage.feature import hog as skimage_hog
 from skimage.feature import local_binary_pattern as skimage_lbp
 
+from utilities import change_colorspace
 
 DEBUG = False
 
 
 class CarClassifier(object):
     """A car classifier object"""
-    def __init__(self, shape=(64, 64), classifier=None, color_space='GRAY',
-                 lbp=True, hog=True,
-                 hog_orient=9, hog_pix_per_cell=(8, 8), hog_cell_per_block=(1, 1),
-                 lbp_n_neighbors=8, lbp_radius=2):
+    def __init__(self, shape=(64, 64), classifier=None, lbp=True, hog=True,
+                 hog_colorspace='RGB', hog_orient=9, hog_pix_per_cell=(8, 8),
+                 hog_cell_per_block=(2, 2), hog_block_normalization='L2-Hys',
+                 lbp_colorspace='GRAY', lbp_n_neighbors=8, lbp_radius=2):
         """Initialization
 
         Parameters
@@ -58,19 +59,25 @@ class CarClassifier(object):
             Image shape in the training/testing data set.
         classifier: object
             A classifier instance, e.g. LinearSVC, DecisionTreeClassifier
-        color_space: string
-            Color space to use. Valid options are
-            'GRAY' (default), 'RGB', 'HSV', 'HLS', 'YUV', 'YCrCb'.
         hog: Boolean
             True for including HOG features.
         lbp: Boolean
             True for including LBP features.
+        hog_colorspace: string
+            Color space to use. Valid options are
+            'GRAY', 'RGB' (default), 'HSV', 'HLS', 'YUV', 'YCrCb'.
         hog_orient: int
             Number of orientations in HOG.
         hog_pix_per_cell: tuple, 2x1
             Number of pixels per cell.
         hog_cell_per_block: tuple, 2x1
             Number of cells per block.
+        hog_block_normalization: string
+            Block normalization method
+            ‘L1’ (default), ‘L1-sqrt’, ‘L2’, ‘L2-Hys’
+        lbp_colorspace: string
+            Color space to use. Valid options are
+            'GRAY', 'RGB' (default), 'HSV', 'HLS', 'YUV', 'YCrCb'.
         lbp_n_neighbors: int
             Number of circularly symmetric neighbour set points
             (quantization of the angular space).
@@ -81,8 +88,6 @@ class CarClassifier(object):
             self.cls = LinearSVC()
         else:
             self.cls = classifier
-
-        self._color_space = color_space
 
         # scaler is an attribute since it will be used by both
         # the train() and predict() methods.
@@ -98,49 +103,17 @@ class CarClassifier(object):
         if self.hog is False and self.lbp is False:
             raise ValueError("At least one algorithm is required!")
 
+        self._hog_colorspace = hog_colorspace
         self._hog_orient = hog_orient
         self._hog_pix_per_cell = hog_pix_per_cell
         self._hog_cell_per_block = hog_cell_per_block
+        self._hog_block_normalization = hog_block_normalization
 
+        self._lbp_colorspace = lbp_colorspace
         self._lbp_n_neighbors = lbp_n_neighbors
         self._lbp_radius = lbp_radius
 
         self.feature_shape = None
-
-    def _change_colorspace(self, img):
-        """Convert the color space of an image
-
-        Parameters
-        ----------
-        img: numpy.ndarray
-            Image array.
-
-        Returns
-        -------
-        New image array.
-        """
-        if len(img.shape) < 3:
-            raise ValueError("A color image is required!")
-
-        # apply color conversion if other than 'RGB'
-        if self._color_space == 'GRAY':
-            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        elif self._color_space == 'RGB':
-            new_img = np.copy(img)
-        elif self._color_space == 'HSV':
-            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        elif self._color_space == 'LUV':
-            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2LUV)
-        elif self._color_space == 'HLS':
-            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
-        elif self._color_space == 'YUV':
-            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
-        elif self._color_space == 'YCrCb':
-            new_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
-        else:
-            raise ValueError("Unknown color space!")
-
-        return new_img
 
     def _hog(self, img):
         """Extract the HOG features from an image"""
@@ -151,6 +124,7 @@ class CarClassifier(object):
                 pixels_per_cell=self._hog_pix_per_cell,
                 cells_per_block=self._hog_cell_per_block,
                 transform_sqrt=False,
+                block_norm=self._hog_block_normalization,
                 visualise=True,
                 feature_vector=False)
         else:
@@ -160,6 +134,7 @@ class CarClassifier(object):
                 pixels_per_cell=self._hog_pix_per_cell,
                 cells_per_block=self._hog_cell_per_block,
                 transform_sqrt=False,
+                block_norm=self._hog_block_normalization,
                 visualise=False,
                 feature_vector=False)
 
@@ -212,9 +187,6 @@ class CarClassifier(object):
         if DEBUG is True:
             print("Shape of the original image: {}".format(img.shape))
 
-        # Change the color space
-        img_processed = self._change_colorspace(img)
-
         # Scaling factor
         # The image should be scaled before feature extraction in order
         # to make the window size the same as self.shape.
@@ -226,12 +198,12 @@ class CarClassifier(object):
 
         if scaling_factor[0] != 1.0 or scaling_factor[1] != 1.0:
             # Scale the image.
-            img_processed = cv2.resize(
-                img_processed,
-                (np.int(img_processed.shape[1] / scaling_factor[1]),
-                 np.int(img_processed.shape[0] / scaling_factor[0])))
+            img_resized = cv2.resize(
+                img,
+                (np.int(img.shape[1] / scaling_factor[1]),
+                 np.int(img.shape[0] / scaling_factor[0])))
         else:
-            img_processed = np.copy(img_processed)
+            img_resized = np.copy(img)
 
         #
         # Extract features from the whole image first.
@@ -246,16 +218,19 @@ class CarClassifier(object):
         if self.hog is True:
             t0 = time.time()
 
-            if len(img_processed.shape) == 2:
+            # Change the color space
+            img_resized_for_hog = change_colorspace(img, self._hog_colorspace)
+
+            if len(img_resized_for_hog.shape) == 2:
                 # For gray scale image
-                hog_features_single_channel, hog_img = self._hog(img_processed)
+                hog_features_single_channel, hog_img = self._hog(img_resized_for_hog)
                 hog_features.append(hog_features_single_channel)
                 hog_imgs.append(hog_img)
             else:
                 # For color image
                 for i in range(3):
                     hog_features_single_channel, hog_img = \
-                        self._hog(img_processed[:, :, i])
+                        self._hog(img_resized_for_hog[:, :, i])
                     hog_features.append(hog_features_single_channel)
                     hog_imgs.append(hog_img)
 
@@ -268,14 +243,17 @@ class CarClassifier(object):
         if self.lbp is True:
             t0 = time.time()
 
-            if len(img_processed.shape) == 2:
+            # Change the color space
+            img_resized_for_lbp = change_colorspace(img, self._lbp_colorspace)
+
+            if len(img_resized_for_lbp.shape) == 2:
                 # For gray scale image
-                lbp_img = self._lbp(img_processed)
+                lbp_img = self._lbp(img_resized_for_lbp)
                 lbp_imgs.append(lbp_img)
             else:
                 # For color image
                 for i in range(3):
-                    lbp_img = self._lbp(img_processed[:, :, i])
+                    lbp_img = self._lbp(img_resized_for_lbp[:, :, i])
                     lbp_imgs.append(lbp_img)
 
             lbp_times.append(time.time() - t0)
@@ -291,10 +269,10 @@ class CarClassifier(object):
 
         y0_window = 0
         y0_window_origin = 0
-        while (y0_window + self.shape[0]) <= img_processed.shape[0]:
+        while (y0_window + self.shape[0]) <= img_resized.shape[0]:
             x0_window = 0
             x0_window_origin = 0
-            while (x0_window + self.shape[1]) <= img_processed.shape[1]:
+            while (x0_window + self.shape[1]) <= img_resized.shape[1]:
                 combined_features = []
 
                 # Extract HOG features of the sliding window
@@ -362,7 +340,7 @@ class CarClassifier(object):
                         ax[2].set_title('hog features', fontsize=font_size)
 
                         plt.suptitle("HOG feature extraction on {} color space".
-                                     format(self._color_space), fontsize=font_size)
+                                     format(self._hog_colorspace), fontsize=font_size)
 
                         plt.tight_layout()
                         plt.show()
@@ -384,7 +362,7 @@ class CarClassifier(object):
                         ax[2].set_title('LBP features', fontsize=font_size)
 
                         plt.suptitle("LBP feature extraction on {} color space".
-                                     format(self._color_space), fontsize=font_size)
+                                     format(self._lbp_colorspace), fontsize=font_size)
 
                         plt.tight_layout()
                         plt.show()
@@ -432,7 +410,7 @@ class CarClassifier(object):
 
         return np.array(features_, dtype=np.float32)
 
-    def train(self, cars, non_cars, max_images=None, test_size=0.3,
+    def train(self, cars, non_cars, max_images=100000, test_size=0.3,
               random_state=None):
         """Train a car classifier.
 
@@ -505,7 +483,7 @@ if __name__ == "__main__":
     noncar_files = glob.glob("data/non-vehicles/Extras/*.png")
     noncar_files.extend(glob.glob("data/non-vehicles/GTI/*.png"))
 
-    cls = LinearSVC(C=0.0001)
+    cls = LinearSVC(C=0.001)
     # cls = DecisionTreeClassifier(max_depth=10)
     # cls = RandomForestClassifier(n_estimators=20, max_depth=6)
 
@@ -513,11 +491,12 @@ if __name__ == "__main__":
     # A high accuracy (> 99%) is important here to reduce the
     # false-positive
     car_cls = CarClassifier(
-        classifier=cls, color_space='YCrCb',
-        hog_orient=9, hog_pix_per_cell=(8, 8), hog_cell_per_block=(2, 2),
-        lbp_n_neighbors=8, lbp_radius=2)
+        classifier=cls, hog=True, lbp=True,
+        hog_colorspace='GRAY', hog_orient=9, hog_pix_per_cell=(8, 8),
+        hog_cell_per_block=(2, 2), hog_block_normalization='L2-Hys',
+        lbp_colorspace='YCrCb', lbp_n_neighbors=8, lbp_radius=2)
 
-    car_cls.train(car_files, noncar_files, max_images=None)
+    car_cls.train(car_files, noncar_files, test_size=0.2, max_images=10000)
 
     output = 'car_classifier.pkl'
     with open(output, "wb") as fp:
@@ -525,12 +504,12 @@ if __name__ == "__main__":
         print("Car classifier was saved in {}".format(output))
 
     # Apply the classifier on a test image
-    test_image = 'test_images/test_image_white_car.png'
-    test_img = cv2.imread(test_image)
-
-    features, windows = car_cls.extract(
-        test_img, window_shape=(64, 64), sliding_step=(8, 8))
-
-    predictions = car_cls.predict(features)
-
-    car_cls.extract(test_img)
+    # test_image = 'test_images/test_image_white_car.png'
+    # test_img = cv2.imread(test_image)
+    #
+    # features, windows = car_cls.extract(
+    #     test_img, window_shape=(64, 64), sliding_step=(8, 8))
+    #
+    # predictions = car_cls.predict(features)
+    #
+    # car_cls.extract(test_img)
