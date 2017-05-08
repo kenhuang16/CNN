@@ -11,3 +11,6 @@ In this project, a deep learning model which can drive the car automatially in a
 
 The detailed pipeline can be found in [summary-behaviorCloning.ipynb](summary-behaviorCloning.ipynb).
 
+ Click to play the video:
+ 
+ [![alt text](http://img.youtube.com/vi/YFC34WFcu_o/0.jpg)](http://www.youtube.com/watch?v=YFC34WFcu_o)
