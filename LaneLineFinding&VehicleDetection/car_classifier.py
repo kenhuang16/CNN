@@ -42,13 +42,11 @@ class CarClassifier(object):
     def __init__(self, shape=(64, 64), classifier=None, extractor=None):
         """Initialization
 
-        Parameters
-        ----------
-        shape: tuple, 2x1
+        :param shape: tuple, 2x1
             Image shape in the training/testing data set.
-        classifier: object
+        :param classifier: object
             Classifier object, e.g. LinearSVC(), DecisionTreeClassifier()
-        extractor: object
+        :param extractor: object
             Feature extractor object, e.g. HogExtractor() or LbpExtractor()
         """
         if classifier is None:
@@ -69,19 +67,16 @@ class CarClassifier(object):
 
         self.feature_shape = None  # feature shape
 
-    def _load(self, files, max_files):
+    def _load(self, files, max_num_files):
         """Read features from image files.
 
-        Parameters
-        ----------
-        files: list
-            List of file names.
-        max_files:
+        :param: files: a list of string
+            File names.
+        :param max_num_files: int
             Maximum number of files to read.
 
-        Returns
-        -------
-        Features of images in numpy.ndarray.
+        :returns : numpy.ndarray
+            Features of images.
         """
         features = []
         for file in files:
@@ -101,7 +96,7 @@ class CarClassifier(object):
                 assert self.feature_shape == img_features.shape
 
             features.append(img_features)
-            if isinstance(max_files, int) and len(features) > max_files:
+            if len(features) > max_num_files:
                 break
 
         return np.array(features, dtype=np.float32)
@@ -110,17 +105,15 @@ class CarClassifier(object):
               random_state=None):
         """Train a car classifier.
 
-        Parameters
-        ----------
-        cars: list
+        :param cars: list
             List of car file names.
-        non_cars: list
+        :param non_cars: list
             List of non-car file names.
-        max_images: int
+        :param max_images: int
             Maximum number of file to read in each data set.
-        test_size: float, in (0, 1)
+        :param test_size: float, in (0, 1)
             Percent of test data in self.X.
-        random_state: int or None.
+        :param random_state: int or None.
             Pseudo-random number generator state used for random sampling.
         """
         car_features = self._load(cars, max_images)
@@ -148,39 +141,72 @@ class CarClassifier(object):
         print("Prediction accuracy on test set: {}".
               format(float(sum(y_pred == y_test) / len(y_pred))))
 
-    def predict(self, img):
-        """Predict a single image
+    def predict(self, img, binary=True):
+        """Predict on a single image
 
         :param img: numpy.ndarray
             Image array.
+        :param binary: Bool
+            True for returning the binary result;
+            False for returning the confidence score of the prediction.
+
+        :return : numpy.array
+            Class label or confidence score.
         """
         features, _ = self.extractor.extract(img)
 
-        return self._predict(np.array([features]))
+        if binary is False:
+            return self._decision_function(np.array([features]))
+        else:
+            return self._predict(np.array([features]))
 
-    def sliding_window_predict(self, img, step_size=None):
-        """"""
+    def sliding_window_predict(self, img, step_size=None, scale=(1.0, 1.0),
+                               binary=True):
+        """Apply sliding window to an image and predict each window
+
+        :param img: numpy.ndarray
+            Image array.
+        :param step_size: 1x2 tuple, int
+            Size of the sliding step.
+        :param binary: Bool
+            True for returning the binary result;
+            False for returning the confidence score of the prediction.
+        :param scale: 1x2 tuple, float
+            Scale of the original image.
+
+        :return : numpy.array
+            Class labels or confidence scores.
+        """
         if step_size is None:
             step_size = self.shape
 
-        features, windows = \
-            self.extractor.sliding_window_extract(
-                img, window_size=self.shape, step_size=step_size)
+        features, windows = self.extractor.sliding_window_extract(
+            img, window_size=self.shape, step_size=step_size, scale=scale)
 
-        return self._predict(features), windows
+        if binary is False:
+            return self._decision_function(features), windows
+        else:
+            return self._prediction(features), windows
 
-    def _predict(self, X):
-        """Predict an image data (set).
+    def _decision_function(self, X):
+        """Predict confidence scores for features (set)
 
-        Parameters
-        ----------
-        X: numpy.ndarray
+        :param X: numpy.ndarray
             Features.
 
-        Returns
-        -------
-        y_pred: numpy.ndarray
-            Predicted labels.
+        :return: numpy.array
+            Confidence scores.
+        """
+        return self.classifier.decision_function(self.scaler.transform(X))
+
+    def _predict(self, X):
+        """Predict class labels for features (set)
+
+        :param X: numpy.ndarray
+            Features.
+
+        :return y_pred: numpy.array
+            Class labels.
         """
         return self.classifier.predict(self.scaler.transform(X)).astype(np.int8)
 
@@ -198,7 +224,7 @@ if __name__ == "__main__":
         noncar_files = glob.glob("data/non-vehicles/Extras/*.png")
         noncar_files.extend(glob.glob("data/non-vehicles/GTI/*.png"))
 
-        cls = LinearSVC(C=0.001)
+        cls = LinearSVC(C=0.0001)
         # cls = DecisionTreeClassifier(max_depth=10)
         # cls = RandomForestClassifier(n_estimators=20, max_depth=6)
 
@@ -208,7 +234,7 @@ if __name__ == "__main__":
         # false-positive
         car_cls = CarClassifier(classifier=cls, extractor=ext)
 
-        car_cls.train(car_files, noncar_files, test_size=0.2, max_images=10000)
+        car_cls.train(car_files, noncar_files, test_size=0.2, max_images=5000)
 
         output = 'car_classifier.pkl'
         with open(output, "wb") as fp:
@@ -247,10 +273,10 @@ if __name__ == "__main__":
         test_img = cv2.imread(test_image)
 
         predictions, windows = car_classifier.sliding_window_predict(
-            test_img, step_size=(16, 16))
+            test_img, step_size=(16, 16), binary=False, scale=(0.25, 0.25))
 
         for window, prediction in zip(windows, predictions):
-            if prediction == 1:
+            if prediction > 0.0:
                 cv2.rectangle(test_img, window[0], window[1], (0, 0, 255), 6)
 
         plt.imshow(test_img)

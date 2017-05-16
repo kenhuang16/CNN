@@ -82,7 +82,8 @@ class HogExtractor(object):
 
         return hog_features, hog_imgs
 
-    def sliding_window_extract(self, img, window_size=(64, 64), step_size=(16, 16)):
+    def sliding_window_extract(self, img, window_size=(64, 64),
+                               step_size=(16, 16), scale=(1.0, 1.0)):
         """Apply sliding window HOG feature extraction
 
         :param img: numpy.ndarray
@@ -91,14 +92,19 @@ class HogExtractor(object):
             Sliding window size in (x, y).
         :param step_size: 1x2 tuple, int
             Sliding step in (x, y).
+        :param scale: 1x2 tuple, float
+            Scale of the original image.
 
         :return: window_features: a list of 1D numpy.array
             Ravelled window features.
         :return: window_coordinates: a list of 2x2 tuple, int
             Window coordinates in ((x0, y0), (x1, y1))
         """
+        img_resized = cv2.resize(
+            img, (np.int(img.shape[1]*scale[1]), np.int(img.shape[0]*scale[0])))
+
         # extract the features of the whole image
-        hog_features, _ = self.extract(img, ravel=False)
+        hog_features, _ = self.extract(img_resized, ravel=False)
 
         window_features = []
         window_coordinates = []
@@ -106,10 +112,10 @@ class HogExtractor(object):
         y1_window = window_size[1]
 
         # Apply sliding window
-        while y1_window <= img.shape[0]:
+        while y1_window <= img_resized.shape[0]:
             x0_window = 0
             x1_window = window_size[0]
-            while x1_window <= img.shape[1]:
+            while x1_window <= img_resized.shape[1]:
                 # concatenate features in different channels
                 combined = []
                 for channel in hog_features:
@@ -120,8 +126,9 @@ class HogExtractor(object):
                     combined.append(channel[y0_hog:y1_hog, x0_hog:x1_hog])
 
                 window_features.append(np.concatenate(combined).ravel())
-                window_coordinates.append(((x0_window, y0_window),
-                                           (x1_window, y1_window)))
+                window_coordinates.append(
+                    ((np.int(x0_window/scale[1]), np.int(y0_window/scale[0])),
+                     (np.int(x1_window/scale[1]), np.int(y1_window/scale[0]))))
 
                 x0_window += step_size[0]
                 x1_window += step_size[0]
