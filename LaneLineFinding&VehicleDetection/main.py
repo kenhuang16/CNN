@@ -17,10 +17,11 @@ import matplotlib.pyplot as plt
 from my_plot import double_plot
 
 from car_classifier import CarClassifier
-from parameters import project_video, thresh_params
+from parameters import project_video, test_video, thresh_params
 
 
 my_video = project_video
+# my_video = test_video
 
 input = my_video['input']
 output = my_video['output']
@@ -68,10 +69,11 @@ double_plot(test_img_undistorted, warped,
 f1 = TrafficVideo(input, camera_cali_file=camera_cali_file,
                   perspective_trans_file=perspective_trans_file,
                   thresh_params=thresh_params,
-                  car_classifier="car_classifier.pkl"
-)
+                  car_classifier="car_classifier.pkl",
+                  search_laneline=True,
+                  search_car=True)
 
-for i in np.arange(1, 2500, 10):
+for i in np.arange(900, 2500, 1):
     print("Frame {}".format(i))
     image = f1.process_video_image(frame=i)
     #misc.imsave('test_images/test_img.png', test_img)

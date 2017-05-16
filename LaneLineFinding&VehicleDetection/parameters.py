@@ -7,8 +7,13 @@ import numpy as np
 w_img = 1280
 h_img = 720
 
-# input = './videos/test_video.mp4'
-# output = './videos/test_video_processed.mp4'
+test_video = {
+    'input': './videos/test_video.mp4',
+    'output': './videos/test_video_processed.mp4',
+    'i_frame': 500,
+    'src': np.float32([[0, h_img], [570, 450], [708, 450], [w_img, h_img]]),
+    'dst': np.float32([[0, h_img], [0, 0], [w_img, 0], [w_img, h_img]])
+}
 
 project_video = {
     'input': './videos/project_video.mp4',
