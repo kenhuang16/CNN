@@ -168,11 +168,7 @@ class TrafficVideo(object):
             img, self.camera_matrix, self.dist_coeffs, None, self.camera_matrix)
 
         if self._is_search_laneline is True:
-            t0 = time.time()
-
             processed = self._search_lanelines(undistorted)
-            if DEBUG is True:
-                print("TOTAL: found lane ines in {:.2} s\n".format(time.time() - t0))
 
             processed = self._draw_center_indicator(processed)
             processed = self._draw_text(processed)
@@ -180,7 +176,9 @@ class TrafficVideo(object):
             processed = np.copy(undistorted)
 
         if self._is_search_car is True:
-            processed = self._search_cars(undistorted)
+            boxes, scores = self._search_cars(undistorted)
+            processed = draw_windows(
+                processed, non_maxima_suppression(boxes, scores, 0.5))
 
         return processed
 
@@ -437,6 +435,4 @@ class TrafficVideo(object):
                 car_windows.append((point1, point2))
                 car_confidences.append(confidence)
 
-        return draw_windows(img, non_maxima_suppression(
-            car_windows, car_confidences, 0.5))
-
+        return car_windows, car_confidences
