@@ -8,13 +8,13 @@ import matplotlib.pyplot as plt
 from skimage.feature import hog as skimage_hog
 from skimage.feature import local_binary_pattern as skimage_lbp
 
-from utilities import change_colorspace, sliding_window
+from utilities import change_colorspace
 
 
 class HogExtractor(object):
     """HOG feature extractor class"""
     def __init__(self, colorspace='RGB', orient=9, pix_per_cell=(8, 8),
-                 cell_per_block=(2, 2), block_normalization='L2-Hys',
+                 cell_per_block=(2, 2), block_normalization='L2',
                  visual=False):
         """Initialization
 
@@ -29,7 +29,7 @@ class HogExtractor(object):
             Number of cells per block.
         :param block_normalization: string
             Block normalization method
-            ‘L1’ (default), ‘L1-sqrt’, ‘L2’, ‘L2-Hys’
+            ‘L1’, ‘L1-sqrt’, ‘L2’(default), ‘L2-Hys’
         :param visual: Bool
             True for visualization.
         """
@@ -65,8 +65,7 @@ class HogExtractor(object):
 
         if len(img_new.shape) == 2:
             # For gray scale image
-            hog_features_single_channel, hog_img = \
-                self._hog(img_new)
+            hog_features_single_channel, hog_img = self._hog(img_new)
             hog_features.append(hog_features_single_channel)
             hog_imgs.append(hog_img)
         else:
@@ -122,10 +121,15 @@ class HogExtractor(object):
                 # concatenate features in different channels
                 combined = []
                 for channel in hog_features:
+                    # this is the tricky part
+                    # For cell_per_block = 1, the feature shape is 8x8x1x1x9
+                    # For cell_per_block = 2, the feature shape is 7x7x2x2x9
+                    # For cell_per_block = 3, the feature shape is 6x6x3x3x9
                     x0_hog = x0_window // self._pix_per_cell[0]
-                    x1_hog = x1_window // self._pix_per_cell[0] - 1
+                    x1_hog = x1_window // self._pix_per_cell[0] - self._cell_per_block[0] + 1
                     y0_hog = y0_window // self._pix_per_cell[1]
-                    y1_hog = y1_window // self._pix_per_cell[1] - 1
+                    y1_hog = y1_window // self._pix_per_cell[1] - self._cell_per_block[1] + 1
+
                     combined.append(channel[y0_hog:y1_hog, x0_hog:x1_hog])
 
                 window_features.append(np.concatenate(combined).ravel())
@@ -177,7 +181,7 @@ class HogExtractor(object):
 
 
 class LbpExtractor(object):
-    """"""
+    """LBP feature extractor class"""
     def __init__(self, colorspace='GRAY', n_neighbors=8, radius=2, visual=False):
         """Initialization
 
@@ -190,8 +194,7 @@ class LbpExtractor(object):
         :param radius: float
             Radius of circle (spatial resolution of the operator).
         :param visual: Bool
-            True for returning LBP images;
-            False for returning flattened features.
+            True for visualization.
         """
         self._colorspace = colorspace
         self._n_neighbors = n_neighbors
@@ -205,7 +208,11 @@ class LbpExtractor(object):
         :param img: numpy.ndarray
             Image array.
 
-        :return: lbp_imgs:
+        :return:
+            If self._visual is True:
+                Return LBP images;
+            If self._visual is False:
+                Return flattened features.
         """
         # Change the color space
         img_new = change_colorspace(img, self._colorspace)
@@ -230,7 +237,7 @@ class LbpExtractor(object):
                     np.histogram(lbp_img, bins=2 ** self._n_neighbors,
                                  range=(0, 2 ** self._n_neighbors))[0])
 
-            return np.concatenate(lbp_features).astype(np.float64)
+            return np.concatenate(lbp_features).astype(np.float32)
 
     def sliding_window_extract(self, img, window_size=(64, 64),
                                step_size=(16, 16), scale=(1.0, 1.0)):
@@ -283,7 +290,8 @@ class LbpExtractor(object):
         :param img: 2D numpy.ndarray
             Image array.
 
-        :return lbp_img:
+        :return lbp_img: 2D numpy.ndarray
+            LBP image array.
         """
         lbp_img = skimage_lbp(img, self._n_neighbors, self._radius)
 
@@ -298,7 +306,7 @@ if __name__ == "__main__":
         image = "data/vehicles/KITTI_extracted/1.png"
 
         img = cv2.imread(image)
-        extractor = HogExtractor(visual=True, colorspace='YCrCb')
+        extractor = HogExtractor(visual=True, colorspace='YCrCb', cell_per_block=(1, 1))
         hog_features, hog_images = extractor.extract(img)
 
         fig, ax = plt.subplots(2, 2, figsize=(6, 6))
@@ -339,7 +347,7 @@ if __name__ == "__main__":
 
     # Test sliding window feature extraction
     elif case == 3:
-        extractor = HogExtractor(colorspace='YCrCb')
+        extractor = HogExtractor(colorspace='YCrCb', cell_per_block=(1, 1))
         title = "HOG features"
 
         # extractor = LbpExtractor(colorspace='YCrCb')

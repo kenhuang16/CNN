@@ -2,20 +2,6 @@
 
 """
 CarClassifier class
-  
-@method _load():
-    Read features from image files.
-
-@method extract():
-    Extract features from an image.
-    Called by train() method.
-
-@method train():
-    Train a car classifier.
-
-@method predict():
-    Predict an image data (set).
-
 """
 
 import glob
@@ -27,8 +13,8 @@ import matplotlib.pyplot as plt
 import cv2
 
 from sklearn.svm import LinearSVC
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
+# from sklearn.tree import DecisionTreeClassifier
+# from sklearn.ensemble import RandomForestClassifier
 
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
@@ -65,14 +51,12 @@ class CarClassifier(object):
 
         self.shape = shape  # image shape
 
-        self.feature_shape = None  # feature shape
-
-    def _load(self, files, max_num_files):
+    def _load(self, files, max_files):
         """Read features from image files.
 
         :param: files: a list of string
             File names.
-        :param max_num_files: int
+        :param max_files: int
             Maximum number of files to read.
 
         :returns : numpy.ndarray
@@ -83,20 +67,17 @@ class CarClassifier(object):
             img = cv2.imread(file)
             assert img.dtype == np.uint8
 
+            # Check the shape of image
             if img.shape[0:2] != self.shape:
                 print("Warning: image shape is not {}".format(self.shape))
                 img = cv2.resize(img, self.shape)
 
+            # extract features
             img_features = self.extractor.extract(img)
 
-            # Get the shape of the feature
-            if self.feature_shape is None:
-                self.feature_shape = img_features.shape
-            else:
-                assert self.feature_shape == img_features.shape
-
             features.append(img_features)
-            if len(features) > max_num_files:
+
+            if len(features) > max_files:
                 break
 
         return np.array(features, dtype=np.float32)
@@ -106,9 +87,9 @@ class CarClassifier(object):
         """Train a car classifier.
 
         :param cars: list
-            List of car file names.
+            List of car filenames.
         :param non_cars: list
-            List of non-car file names.
+            List of non-car filenames.
         :param max_images: int
             Maximum number of file to read in each data set.
         :param test_size: float, in (0, 1)
@@ -118,6 +99,7 @@ class CarClassifier(object):
         """
         car_features = self._load(cars, max_images)
         noncar_features = self._load(non_cars, max_images)
+
         X = np.vstack((car_features, noncar_features))
         y = np.hstack((np.ones(len(car_features)),
                        np.zeros(len(noncar_features)))).astype(np.int8)
@@ -131,11 +113,8 @@ class CarClassifier(object):
         print("Number of testing data: {}".format(len(y_test)))
         print("Number of features: {}".format(len(X_train[0])))
 
-        t0 = time.time()
-
         normalized_X = self.scaler.fit_transform(X_train)
         self.classifier.fit(normalized_X, y_train)
-        print("Training finished in {:.1f} s".format(time.time() - t0))
 
         y_pred = self._predict(X_test)
         print("Prediction accuracy on test set: {}".
@@ -186,7 +165,7 @@ class CarClassifier(object):
         if binary is False:
             return self._decision_function(features), windows
         else:
-            return self._prediction(features), windows
+            return self._predict(features), windows
 
     def _decision_function(self, X):
         """Predict confidence scores for features (set)
@@ -216,20 +195,23 @@ if __name__ == "__main__":
 
     # Train a classifier
     if case == 1:
-        car_files = glob.glob("data/vehicles/KITTI_extracted/*.png")
+        car_files = []
+        car_files.extend(glob.glob("data/vehicles/KITTI_extracted/*.png"))
         car_files.extend(glob.glob("data/vehicles/GTI_Far/*.png"))
         car_files.extend(glob.glob("data/vehicles/GTI_Left/*.png"))
         car_files.extend(glob.glob("data/vehicles/GTI_Right/*.png"))
         car_files.extend(glob.glob("data/vehicles/GTI_MiddleClose/*.png"))
-        noncar_files = glob.glob("data/non-vehicles/Extras/*.png")
+
+        noncar_files = []
+        noncar_files.extend(glob.glob("data/non-vehicles/Extras/*.png"))
         noncar_files.extend(glob.glob("data/non-vehicles/GTI/*.png"))
 
         cls = LinearSVC(C=0.0001)
         # cls = DecisionTreeClassifier(max_depth=10)
         # cls = RandomForestClassifier(n_estimators=20, max_depth=6)
 
-        # ext = HogExtractor(colorspace='YCrCb')
-        ext = LbpExtractor()
+        ext = HogExtractor(colorspace='YCrCb', cell_per_block=(2, 2))
+        # ext = LbpExtractor()
 
         # The critical hyper-parameter here is color_space='YCrCb'
         # A high accuracy (> 99%) is important here to reduce the
@@ -278,7 +260,7 @@ if __name__ == "__main__":
             test_img, step_size=(8, 8), binary=False, scale=(0.6, 0.6))
 
         for window, prediction in zip(windows, predictions):
-            if prediction > 0.0:
+            if prediction > 0.5:
                 cv2.rectangle(test_img, window[0], window[1], (255, 0, 0), 6)
 
         cv2.imshow('img', test_img)
