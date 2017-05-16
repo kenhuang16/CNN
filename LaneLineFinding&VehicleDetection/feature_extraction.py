@@ -1,5 +1,13 @@
 """
 feature extraction
+
+--------------------
+Class HogExtractor()
+    HOG feature extractor class
+    
+--------------------   
+Class LbpExtractor()
+    LBP feature extractor class
 """
 import numpy as np
 import cv2
