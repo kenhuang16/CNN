@@ -54,8 +54,8 @@ class HogExtractor(object):
                 Non-ravelled HOG features in different channels.
             If ravel == True, 1D numpy.array
                 Ravelled HOG features.
-        :returns hog_imgs: a list of 2D numpy.ndarray
-            HOG images in different channels if self.visual is True.
+        :returns hog_imgs: a list of 2D numpy.ndarray (if self.visual is True).
+            HOG images in different channels.
         """
         hog_features = []
         hog_imgs = []
@@ -80,7 +80,10 @@ class HogExtractor(object):
         if ravel is True:
             hog_features = np.concatenate(hog_features).ravel()
 
-        return hog_features, hog_imgs
+        if self._visual is True:
+            return hog_features, hog_imgs
+        else:
+            return hog_features
 
     def sliding_window_extract(self, img, window_size=(64, 64),
                                step_size=(16, 16), scale=(1.0, 1.0)):
@@ -104,7 +107,7 @@ class HogExtractor(object):
             img, (np.int(img.shape[1]*scale[1]), np.int(img.shape[0]*scale[0])))
 
         # extract the features of the whole image
-        hog_features, _ = self.extract(img_resized, ravel=False)
+        hog_features = self.extract(img_resized, ravel=False)
 
         window_features = []
         window_coordinates = []
@@ -175,7 +178,7 @@ class HogExtractor(object):
 
 class LbpExtractor(object):
     """"""
-    def __init__(self, colorspace='GRAY', n_neighbors=8, radius=2):
+    def __init__(self, colorspace='GRAY', n_neighbors=8, radius=2, visual=False):
         """Initialization
 
         :param colorspace: string
@@ -186,10 +189,15 @@ class LbpExtractor(object):
             (quantization of the angular space).
         :param radius: float
             Radius of circle (spatial resolution of the operator).
+        :param visual: Bool
+            True for returning LBP images;
+            False for returning flattened features.
         """
         self._colorspace = colorspace
         self._n_neighbors = n_neighbors
         self._radius = radius
+
+        self._visual = visual
 
     def extract(self, img):
         """Extract LBP features from an image
@@ -213,7 +221,61 @@ class LbpExtractor(object):
                 lbp_img = self._lbp(img_new[:, :, i])
                 lbp_imgs.append(lbp_img)
 
-        return lbp_imgs
+        if self._visual is True:
+            return lbp_imgs
+        else:
+            lbp_features = []
+            for lbp_img in lbp_imgs:
+                lbp_features.append(
+                    np.histogram(lbp_img, bins=2 ** self._n_neighbors,
+                                 range=(0, 2 ** self._n_neighbors))[0])
+
+            return np.concatenate(lbp_features).astype(np.float64)
+
+    def sliding_window_extract(self, img, window_size=(64, 64),
+                               step_size=(16, 16), scale=(1.0, 1.0)):
+        """Apply sliding window LBP feature extraction
+
+        :param img: numpy.ndarray
+            Image array.
+        :param window_size: 1x2 tuple, int
+            Sliding window size in (x, y).
+        :param step_size: 1x2 tuple, int
+            Sliding step in (x, y).
+        :param scale: 1x2 tuple, float
+            Scale of the original image.
+
+        :return: window_features: a list of 1D numpy.array
+            Ravelled window features.
+        :return: window_coordinates: a list of 2x2 tuple, int
+            Window coordinates in ((x0, y0), (x1, y1))
+        """
+        img_resized = cv2.resize(
+            img, (np.int(img.shape[1]*scale[1]), np.int(img.shape[0]*scale[0])))
+
+        window_features = []
+        window_coordinates = []
+        y0_window = 0
+        y1_window = window_size[1]
+
+        # Apply sliding window
+        while y1_window <= img_resized.shape[0]:
+            x0_window = 0
+            x1_window = window_size[0]
+            while x1_window <= img_resized.shape[1]:
+                window_img = img_resized[y0_window:y1_window, x0_window:x1_window]
+                window_features.append(self.extract(window_img))
+                window_coordinates.append(
+                    ((np.int(x0_window/scale[1]), np.int(y0_window/scale[0])),
+                     (np.int(x1_window/scale[1]), np.int(y1_window/scale[0]))))
+
+                x0_window += step_size[0]
+                x1_window += step_size[0]
+
+            y0_window += step_size[1]
+            y1_window += step_size[1]
+
+        return window_features, window_coordinates
 
     def _lbp(self, img):
         """Extract the LBP features from an image
@@ -229,14 +291,15 @@ class LbpExtractor(object):
 
 
 if __name__ == "__main__":
-    case = 2
+    case = 3
 
+    # Test single image HOG feature extraction
     if case == 1:
         image = "data/vehicles/KITTI_extracted/1.png"
 
         img = cv2.imread(image)
         extractor = HogExtractor(visual=True, colorspace='YCrCb')
-        hog_features, hog_image = extractor.extract(img)
+        hog_features, hog_images = extractor.extract(img)
 
         fig, ax = plt.subplots(2, 2, figsize=(6, 6))
         ax = ax.flatten()
@@ -244,13 +307,44 @@ if __name__ == "__main__":
         ax[0].plot(hog_features)
         for i in range(3):
             try:
-                ax[i+1].imshow(hog_image[i])
+                ax[i+1].imshow(hog_images[i])
             except:
                 pass
 
+        plt.suptitle("HOG features and images")
         plt.show()
 
+    # Test single image LBP feature extraction
     elif case == 2:
+        image = "data/vehicles/KITTI_extracted/1.png"
+        img = cv2.imread(image)
+
+        extractor = LbpExtractor()
+        lbp_features = extractor.extract(img)
+        extractor._visual = True
+        lbp_images = extractor.extract(img)
+
+        fig, ax = plt.subplots(2, 2, figsize=(6, 6))
+        ax = ax.flatten()
+
+        ax[0].plot(lbp_features)
+        for i in range(3):
+            try:
+                ax[i+1].imshow(lbp_images[i])
+            except:
+                pass
+
+        plt.suptitle('LBP features and images')
+        plt.show()
+
+    # Test sliding window feature extraction
+    elif case == 3:
+        extractor = HogExtractor(colorspace='YCrCb')
+        title = "HOG features"
+
+        # extractor = LbpExtractor(colorspace='YCrCb')
+        # title = "LBP features"
+
         image = "test_images/test_image_white_car.png"
 
         img = cv2.imread(image)
@@ -258,7 +352,6 @@ if __name__ == "__main__":
         plt.imshow(cv2.merge([r, g, b]))
         plt.show()
 
-        extractor = HogExtractor(visual=True, colorspace='YCrCb')
         features, windows = \
             extractor.sliding_window_extract(img, step_size=(64, 64))
 
@@ -283,4 +376,6 @@ if __name__ == "__main__":
             ax.set_axis_off()
             i += 1
         plt.subplots_adjust(wspace=0.05)
+
+        plt.suptitle(title)
         plt.show()

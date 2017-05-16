@@ -87,7 +87,7 @@ class CarClassifier(object):
                 print("Warning: image shape is not {}".format(self.shape))
                 img = cv2.resize(img, self.shape)
 
-            img_features, _ = self.extractor.extract(img)
+            img_features = self.extractor.extract(img)
 
             # Get the shape of the feature
             if self.feature_shape is None:
@@ -153,7 +153,7 @@ class CarClassifier(object):
         :return : numpy.array
             Class label or confidence score.
         """
-        features, _ = self.extractor.extract(img)
+        features = self.extractor.extract(img)
 
         if binary is False:
             return self._decision_function(np.array([features]))
@@ -228,13 +228,15 @@ if __name__ == "__main__":
         # cls = DecisionTreeClassifier(max_depth=10)
         # cls = RandomForestClassifier(n_estimators=20, max_depth=6)
 
-        ext = HogExtractor(colorspace='YCrCb')
+        # ext = HogExtractor(colorspace='YCrCb')
+        ext = LbpExtractor()
+
         # The critical hyper-parameter here is color_space='YCrCb'
         # A high accuracy (> 99%) is important here to reduce the
         # false-positive
         car_cls = CarClassifier(classifier=cls, extractor=ext)
 
-        car_cls.train(car_files, noncar_files, test_size=0.2, max_images=5000)
+        car_cls.train(car_files, noncar_files, test_size=0.2, max_images=10000)
 
         output = 'car_classifier.pkl'
         with open(output, "wb") as fp:
@@ -273,11 +275,11 @@ if __name__ == "__main__":
         test_img = cv2.imread(test_image)
 
         predictions, windows = car_classifier.sliding_window_predict(
-            test_img, step_size=(16, 16), binary=False, scale=(0.25, 0.25))
+            test_img, step_size=(8, 8), binary=False, scale=(0.6, 0.6))
 
         for window, prediction in zip(windows, predictions):
             if prediction > 0.0:
-                cv2.rectangle(test_img, window[0], window[1], (0, 0, 255), 6)
+                cv2.rectangle(test_img, window[0], window[1], (255, 0, 0), 6)
 
-        plt.imshow(test_img)
-        plt.show()
+        cv2.imshow('img', test_img)
+        cv2.waitKey(0)
