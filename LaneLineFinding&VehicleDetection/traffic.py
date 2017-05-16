@@ -15,14 +15,14 @@ from threshold import Threshold
 from calibration import undistort_image
 from car import Car
 
+from utilities import draw_windows, non_maxima_suppression
+
 
 INF = 1.0e21
 # The length (in pixel) of the front of the car in the original image.
 CAR_FRONT_LENGTH = 40
 
 DEBUG = False
-DEBUG_LANELINE = False
-TIME_MONITOR = False
 
 
 class TrafficVideo(object):
@@ -33,7 +33,8 @@ class TrafficVideo(object):
 
     """
     def __init__(self, input, camera_cali_file=None, perspective_trans_file=None,
-                 thresh_params=None, max_poor_fit_time=0.5, car_classifier=None):
+                 thresh_params=None, max_poor_fit_time=0.5, car_classifier=None,
+                 search_car=True, search_laneline=True):
         """Initialization.
 
         Parameters
@@ -52,6 +53,10 @@ class TrafficVideo(object):
             a fresh line search.
         car_classifier:
             Car classifier pickle file.
+        search_car: Boolean
+            True for search cars in the video/image.
+        search_laneline: Boolean
+            True for search lanelines in the video/image.
         """
         self.input = input
         self.clip = VideoFileClip(input)
@@ -77,28 +82,28 @@ class TrafficVideo(object):
 
         self.max_poor_fit_time = max_poor_fit_time
 
-        if thresh_params is not None:
-            self._search_laneline = True
+        if thresh_params is not None and search_laneline is True:
+            self._is_search_laneline = True
         else:
-            self._search_laneline = False
+            self._is_search_laneline = False
 
-        if car_classifier is not None:
+        if car_classifier is not None and search_car is True:
             try:
                 with open(car_classifier, "rb") as fp:
-                    self.car_cls = pickle.load(fp)
+                    self.car_classifier = pickle.load(fp)
             except IOError:
-                print("Please train and pickle a classifier first!")
-            self._search_car = True
+                raise IOError("Not found: car classifier!")
+
+            self._is_search_car = True
         else:
-            self._search_car = False
+            self._is_search_car = False
 
         self.direction_text_string = ''
 
-        self.car_heatmap = []
-        self.n_heatmap_sum = 5
-        self.car_heatmap_thresh = 50
-        self.car_min_width = 32
-        self.car_min_height = 32
+        self._car_heatmap_history = []  # store the history of car heatmap
+        self._car_heatmap_history_max = 5  # max heatmaps stored
+        self._car_heatmap_thresh = 30
+        self._car_minimum_size = 30  # minimum size of a car heatmap in pixel
 
     @property
     def shape(self):
@@ -162,11 +167,11 @@ class TrafficVideo(object):
         undistorted = cv2.undistort(
             img, self.camera_matrix, self.dist_coeffs, None, self.camera_matrix)
 
-        if self._search_laneline is True:
+        if self._is_search_laneline is True:
             t0 = time.time()
 
             processed = self._search_lanelines(undistorted)
-            if TIME_MONITOR is True:
+            if DEBUG is True:
                 print("TOTAL: found lane ines in {:.2} s\n".format(time.time() - t0))
 
             processed = self._draw_center_indicator(processed)
@@ -174,14 +179,8 @@ class TrafficVideo(object):
         else:
             processed = np.copy(undistorted)
 
-        if self._search_car is True:
-            t0 = time.time()
-
-            car_windows = self._search_cars(undistorted)
-            processed = self._draw_windows(processed, car_windows)
-
-            if TIME_MONITOR is True:
-                print("TOTAL: Found cars in {:.2} s\n".format(time.time() - t0))
+        if self._is_search_car is True:
+            processed = self._search_cars(undistorted)
 
         return processed
 
@@ -408,236 +407,36 @@ class TrafficVideo(object):
 
         Return
         ------
-        cars: list of ((x0, y0), (x1, y1))
-            Diagonal coordinates of the windows containing cars.
+        car_windows: list of ((x0, y0), (x1, y1))
+            Diagonal coordinates of the predicted windows.
         """
-        t0 = time.time()
+        x0 = 0
+        x1 = img.shape[1]
+        y0 = int(0.48 * img.shape[0])
+        y1 = int(0.90 * img.shape[0])
+        search_region = img[y0:y1, x0:x1, :]
 
-        window_size = 64
-        window_size_increase = 64
-        x_slide_step = 0.125
-        y_slide_step = 0.125
-        y_window_extra = y_slide_step*8
-        y0_shift = 40
-        x0_shift = 80
+        # Applying sliding window search with different scale ratios
+        scale_ratios = [0.7, 0.6, 0.5]
+        windows_confidences = []
+        windows_coordinates = []
+        for ratio in scale_ratios:
+            predictions, windows = self.car_classifier.sliding_window_predict(
+                search_region, step_size=(16, 16), binary=False, scale=(ratio, ratio))
+            windows_confidences.extend(predictions)
+            windows_coordinates.extend(windows)
 
-        x0 = 300
-        x1 = 1280
-        y0 = np.int(img.shape[0]/2 - window_size*y_slide_step*2) + y0_shift
-        y1 = y0 + np.int(window_size*(1 + y_window_extra))
-
-        search_regions = []
-        tp_windows = []
-        dt_feature_extraction = 0.0
-        dt_prediction = 0.0
-        while window_size <= 196:
-            search_regions.append(((x0, y0), (x1, y1)))
-            x_slide_step_size = np.int(x_slide_step * window_size)
-            y_slide_step_size = np.int(y_slide_step * window_size)
-
-            # print("window_size: {}, slide_step_size: {}"
-            #       .format(window_size, slide_step_size))
-            # print("y0: {}, y1: {}".format(y0, y1))
-            t0 = time.time()
-            features, windows = self.car_cls.extract(
-                img, window_shape=(window_size, window_size),
-                slide_step=(x_slide_step_size, y_slide_step_size),
-                x_range=(x0, x1), y_range=(y0, y1), x_pad=window_size)
-
-            t1 = time.time()
-            dt_feature_extraction += t1 - t0
-
-            predictions = self.car_cls.predict(features)
-
-            dt_prediction += time.time() - t1
-
-            for prediction, window in zip(predictions, windows):
-                if prediction == 1:
-                    tp_windows.append(window)
-
-            window_size += window_size_increase
-
-            x0 -= x0_shift
-            if x0 < 0:
-                x0 = 0
-            x1 += x0_shift
-            if x1 > img.shape[1]:
-                x1 = img.shape[1]
-            y0 = np.int(img.shape[0]/2 - window_size*y_slide_step*2) + y0_shift
-            if y0 > img.shape[0]:
-                y0 = img.shape[0]
-            y1 = y0 + np.int(window_size*(1 + y_window_extra))
-            if y1 > img.shape[0] - CAR_FRONT_LENGTH:
-                y1 = img.shape[0] - CAR_FRONT_LENGTH
-
-        # if DEBUG is True:
-        #     _, ax = plt.subplots(figsize=(16, 9))
-        #     img_with_search_regions = self._draw_windows(img, search_regions)
-        #     ax.imshow(img_with_search_regions)
-        #     plt.tight_layout()
-        #     plt.show()
-
-        if TIME_MONITOR is True:
-            print("- Feature extractions in {:.2} s".format(dt_feature_extraction))
-            print("- Prediction in {:.2} s".format(dt_prediction))
-
-        # Create heatmap
-        heatmap = np.zeros_like(img[:, :, 0])
-        for window in tp_windows:
-            heatmap[window[0][1]:window[1][1], window[0][0]:window[1][0]] += 1
-
-        # Sum heatmap over history and apply threshold
-        self.car_heatmap.append(heatmap)
-        if len(self.car_heatmap) > self.n_heatmap_sum:
-            self.car_heatmap.pop(0)
-        sum_heatmap = sum(self.car_heatmap)
-        sum_heatmap[sum_heatmap < self.car_heatmap_thresh] = 0
-
-        # Labeling heatmap
-        t0 = time.time()
-        labels = label(sum_heatmap)
-
-        if DEBUG is True:
-            self._visualize_search_result(img, tp_windows, sum_heatmap, labels)
-
-        if TIME_MONITOR is True:
-            print("- Labeling in {:.2} s".format(time.time() - t0))
-
+        # pick windows with confidence higher than threshold
+        confidence_thresh = 0.5
         car_windows = []
-        for car_number in range(1, labels[1] + 1):
-            # Find pixels with each car_number label value
-            nonzero = (labels[0] == car_number).nonzero()
-            # Identify x and y values of those pixels
-            nonzeroy = np.array(nonzero[0])
-            nonzerox = np.array(nonzero[1])
-            # Define a bounding box based on min/max x and y
+        car_confidences = []
+        for window, confidence in zip(windows_coordinates, windows_confidences):
+            if confidence > confidence_thresh:
+                point1 = (window[0][0] + x0, window[0][1] + y0)
+                point2 = (window[1][0] + x0, window[1][1] + y0)
+                car_windows.append((point1, point2))
+                car_confidences.append(confidence)
 
-            heat_region = heatmap[nonzeroy.min():nonzeroy.max(),
-                          nonzerox.min():nonzerox.max()]
+        return draw_windows(img, non_maxima_suppression(
+            car_windows, car_confidences, 0.5))
 
-            if np.max(nonzerox) - np.min(nonzerox) < self.car_min_width or \
-                np.max(nonzeroy) - np.min(nonzeroy) < self.car_min_height:
-                # Reject if the region is too small
-                continue
-
-            car_window = ((np.min(nonzerox), np.min(nonzeroy)),
-                              (np.max(nonzerox), np.max(nonzeroy)))
-            car_windows.append(car_window)
-
-        return car_windows
-
-    @staticmethod
-    def _visualize_search_result(img, windows, heatmap, labels):
-        """Visualize windows and the corresponding heat maps
-
-        Parameters
-        ----------
-        img: numpy.ndarray
-            Image array.
-        windows: list of ((x0, y0), (x1, y1))
-            Diagonal coordinates of the windows.
-        heatmap: numpy.ndarray
-            Heatmap Image array.
-        labels: numpy.ndarray
-            Result from skimage.label().
-
-        For debug only.
-        """
-        img_with_windows = np.copy(img)
-
-        for window in windows:
-            cv2.rectangle(img_with_windows, window[0], window[1], (0, 0, 255), 6)
-
-        fig, ax = plt.subplots(3, 1, figsize=(6, 13.5))
-
-        ax[0].imshow(img_with_windows)
-        ax[0].set_title("raw search result", fontsize=20)
-        ax[1].imshow(heatmap, cmap='hot')
-        ax[1].set_title("heatmap", fontsize=20)
-        ax[2].imshow(labels[0], cmap='gray')
-        ax[2].set_title("labeled", fontsize=20)
-
-        plt.tight_layout()
-        plt.show()
-
-    @staticmethod
-    def _draw_windows(img, windows, color=(0, 0, 255), thickness=2):
-        """Draw rectangular windows in an image
-
-        Parameters
-        ----------
-        img: numpy.ndarray
-            Image array.
-        windows: list of ((x0, y0), (x1, y1))
-            Diagonal coordinates of the windows.
-        color: tuple
-            RGB color tuple.
-        thickness: int
-            Line thickness.
-
-        Return
-        ------
-        New image array with windows imprinted.
-        """
-        new_img = np.copy(img)
-        for window in windows:
-            cv2.rectangle(new_img, window[0], window[1], color, thickness)
-        # Return the image
-        return new_img
-
-    def set_car(self, *args, **kwargs):
-        """Add a car object"""
-        i = self.first_available_index(self._cars)
-
-        if (len(args) > 0) and isinstance(args[0], Car):
-            self._cars[i] = args[0]
-        else:
-            try:
-                self._cars[i] = Car(*args, **kwargs)
-            except:
-                raise ValueError(
-                    "Input is not valid for a Car object instance!\n")
-
-    def get_car(self, i):
-        """Get a car object by index
-
-        Parameters
-        ----------
-        i: int
-            Car index.
-        """
-        if not isinstance(i, int) or i < 0:
-            raise ValueError("i must be a non-negative integer!")
-
-        return self._cars[i]
-
-    def get_carset(self):
-        """Get the set of cars"""
-        return self._cars
-
-    def del_car(self, i):
-        """Delete a car object
-
-        Parameters
-        ----------
-        i: int
-            Car index.
-        """
-        if i not in self._cars:
-            raise ValueError("Index is not found.\n")
-        else:
-            del self._cars[i]
-
-    @staticmethod
-    def first_available_index(set):
-        """List First Unused Index from Variable Objects List
-
-        Parameters
-        ----------
-        set:
-        """
-        i = 0
-        while i in set:
-            i += 1
-
-        return i
