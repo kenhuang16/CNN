@@ -13,7 +13,7 @@ The camera distortion was calibrated by the [chessboard images](./camera_cal/). 
 
 Then the output `obj_points` and `img_points` were used to calculate the camera calibration and distortion coefficients using the `cv2.calibrateCamera()`.  The result was saved in the file "./camera_cali.pkl". Undistortion of the test image "camera_cal/calibration1.jpg" using `cv2.undistort()` is shown below: 
 
-![image](./output_images/chess_board_undistortion.jpg "Chessboard undistortion")
+![image](./output_images/chess_board_undistorted.jpg "Chessboard undistortion")
 
 ##LaneLine Detection
 
@@ -21,7 +21,7 @@ Image undistortion -> threshold -> perspective transform ->
 
 ### 1. Undistortion
 
-![image](./output_images/image_undistortion.jpg "Sample image undistortion")
+![image](./output_images/image_undistorted.jpg "Sample image undistortion")
 
 ### 2. Threshold
 A combination of color and gradient thresholds was used to generate a binary image. The processing of a screenshot with shadown on the road is shown in the following:
