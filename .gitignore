@@ -1,5 +1,9 @@
 *.pyc
+*.pkl
 .ipynb_checkpoints
 .idea
 *.pdf
 *.x86_64
+BehaviorCloning/data*
+BehaviorCloning/Default*
+LaneLineFinding&VehicleDetection/data
