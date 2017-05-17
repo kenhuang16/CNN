@@ -10,6 +10,7 @@ This file holds two classes for feature extraction:
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 from skimage.feature import hog as skimage_hog
 from skimage.feature import local_binary_pattern as skimage_lbp
@@ -305,27 +306,32 @@ class LbpExtractor(object):
 
 
 if __name__ == "__main__":
-    case = 3
+    case = 2
 
     # Test single image HOG feature extraction
     if case == 1:
         image = "data/vehicles/KITTI_extracted/1.png"
 
         img = cv2.imread(image)
+
         extractor = HogExtractor(visual=True, colorspace='YCrCb', cell_per_block=(1, 1))
         hog_features, hog_images = extractor.extract(img)
 
-        fig, ax = plt.subplots(2, 2, figsize=(6, 6))
-        ax = ax.flatten()
+        fig = plt.figure(figsize=(9, 6))
+        gs = gridspec.GridSpec(2, 3)
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax2 = fig.add_subplot(gs[0, 1:3])
 
-        ax[0].plot(hog_features)
+        ax1.imshow(img)
+        ax2.plot(hog_features)
         for i in range(3):
             try:
-                ax[i+1].imshow(hog_images[i])
+                fig.add_subplot(gs[1, i]).imshow(hog_images[i])
             except:
                 pass
 
-        plt.suptitle("HOG features and images")
+        plt.suptitle("HOG features and images (colorspace: {})".
+                     format(extractor._colorspace))
         plt.show()
 
     # Test single image LBP feature extraction
@@ -333,22 +339,26 @@ if __name__ == "__main__":
         image = "data/vehicles/KITTI_extracted/1.png"
         img = cv2.imread(image)
 
-        extractor = LbpExtractor()
+        extractor = LbpExtractor(colorspace='YCrCb')
         lbp_features = extractor.extract(img)
         extractor._visual = True
         lbp_images = extractor.extract(img)
 
-        fig, ax = plt.subplots(2, 2, figsize=(6, 6))
-        ax = ax.flatten()
+        fig = plt.figure(figsize=(9, 6))
+        gs = gridspec.GridSpec(2, 3)
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax2 = fig.add_subplot(gs[0, 1:3])
 
-        ax[0].plot(lbp_features)
+        ax1.imshow(img)
+        ax2.plot(lbp_features)
         for i in range(3):
             try:
-                ax[i+1].imshow(lbp_images[i])
+                fig.add_subplot(gs[1,i]).imshow(lbp_images[i])
             except:
                 pass
 
-        plt.suptitle('LBP features and images')
+        plt.suptitle("LBP features and images (colorspace: {})".
+                     format(extractor._colorspace))
         plt.show()
 
     # Test sliding window feature extraction
@@ -359,7 +369,7 @@ if __name__ == "__main__":
         # extractor = LbpExtractor(colorspace='YCrCb')
         # title = "LBP features"
 
-        image = "test_images/test_image_white_car.png"
+        image = "test_images/test_image_two_cars.png"
 
         img = cv2.imread(image)
         b, g, r = cv2.split(img)  # get b,g,r
@@ -370,7 +380,7 @@ if __name__ == "__main__":
             extractor.sliding_window_extract(img, step_size=(64, 64))
 
         fig1, axs1 = plt.subplots(6, 6, figsize=(8, 8))
-        i = 100
+        i = 120
         for ax in axs1.flatten():
             if i > len(features) - 1:
                 break
@@ -379,6 +389,7 @@ if __name__ == "__main__":
             ax.set_axis_off()
             i += 1
         plt.subplots_adjust(wspace=0.05)
+        plt.suptitle("sliding windows")
         plt.show()
 
         fig2, axs2 = plt.subplots(6, 6, figsize=(8, 8))
