@@ -59,7 +59,7 @@ Finally, the above binary images were combined to get the final result.
 
 [non-vehicles](https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/non-vehicles.zip) 
 
-The total number of data is 17760 and the total number of features is 1323 (441x3). 
+The sizes of the images in the data set are all **64 x 64**. These data come from [GTI vehicle image database](http://www.gti.ssr.upm.es/data/Vehicle_database.html) and [KITTI Vision Benchmark Suite](http://www.cvlibs.net/datasets/kitti/).
 
 ### 1. Histogram of Oriented Gradients (HOG)
 
@@ -70,6 +70,8 @@ The total number of data is 17760 and the total number of features is 1323 (441x
 ![image](./output_images/lbp_features_and_images.png "LBP")
 
 ### 3. Sliding Window Search
+
+The size of the original image will be scaled, but the window sizes are always **64x64**. In order to detect vehicles in a image, the sliding window method should be applied multiple times using different scales.
 
 ![image](./output_images/sliding_window_images.png "sliding window images")
 ![image](./output_images/sliding_window_features.png "sliding window features")
