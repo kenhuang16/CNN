@@ -1,12 +1,10 @@
 """
-feature extraction
+This file holds two classes for feature extraction:
 
---------------------
-Class HogExtractor()
+- Class HogExtractor()
     HOG feature extractor class
-    
---------------------   
-Class LbpExtractor()
+
+- Class LbpExtractor()
     LBP feature extractor class
 """
 import numpy as np

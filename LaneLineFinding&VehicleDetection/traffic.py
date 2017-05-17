@@ -10,10 +10,8 @@ import matplotlib.pyplot as plt
 from scipy.ndimage.measurements import label, center_of_mass
 
 from lane_line import TwinLine
-from my_plot import double_plot
 from threshold import Threshold
 from calibration import undistort_image
-from car import Car
 
 from utilities import draw_windows, non_maxima_suppression
 
@@ -26,45 +24,37 @@ DEBUG = False
 
 
 class TrafficVideo(object):
-    """TrafficVideo class
-
-    Attributes
-    ----------
-
-    """
+    """TrafficVideo class"""
     def __init__(self, input, camera_cali_file=None, perspective_trans_file=None,
                  thresh_params=None, max_poor_fit_time=0.5, car_classifier=None,
                  search_car=True, search_laneline=True):
         """Initialization.
 
-        Parameters
-        ----------
-        input: string
+        :param input: string
             File name of the input video.
-        camera_cali_file: string
+        :param camera_cali_file: string
             Name of the pickle file storing the camera calibration
-        perspective_trans_file: string
+        :param perspective_trans_file: string
             Name of the pickle file storing the perspective transform
             matrices.
-        thresh_params: list of dictionary
+        :param thresh_params: list of dictionary
             Parameters for the gradient and color threshhold.
-        max_poor_fit_time: float
+        :param max_poor_fit_time: float
             Maximum allowed period (in second) of consecutive fail before
             a fresh line search.
-        car_classifier:
+        :param car_classifier:
             Car classifier pickle file.
-        search_car: Boolean
+        :param search_car: Boolean
             True for search cars in the video/image.
-        search_laneline: Boolean
+        :param search_laneline: Boolean
             True for search lanelines in the video/image.
         """
         self.input = input
         self.clip = VideoFileClip(input)
-        self.frame = 0
-        self._shape = None
+        self.iframe = 0
+        self._shape = None  # image (in the video) shape
 
         self.lines = None
-        self._cars = {}
 
         with open(camera_cali_file, "rb") as fp:
             camera_cali = pickle.load(fp)
@@ -98,13 +88,6 @@ class TrafficVideo(object):
         else:
             self._is_search_car = False
 
-        self.direction_text_string = ''
-
-        self._car_heatmap_history = []  # store the history of car heatmap
-        self._car_heatmap_history_max = 5  # max heatmaps stored
-        self._car_heatmap_thresh = 30
-        self._car_minimum_size = 30  # minimum size of a car heatmap in pixel
-
     @property
     def shape(self):
         """The shape property"""
@@ -124,43 +107,33 @@ class TrafficVideo(object):
     def process(self, output):
         """Process the input video and dump it into the output.
 
-        Parameters
-        ----------
-        output: string
+        :param output: string
             File name of the output video.
         """
         processed_clip = self.clip.fl_image(self._process_image)
         processed_clip.to_videofile(output, audio=False)
 
-    def process_video_image(self, frame=1):
+    def process_video_image(self, iframe=1):
         """Process a frame in a video
 
-        Parameters
-        ----------
-        frame: int
+        :param iframe: int
             Frame index.
 
-        Return
-        ------
-        Processed image array.
+        :return: processed image.
         """
-        self.frame = frame
-        img = self.clip.get_frame(int(frame)/self.clip.fps)
+        self.iframe = iframe
+        img = self.clip.get_frame(int(iframe)/self.clip.fps)
 
         return self._process_image(img)
 
     def _process_image(self, img):
         """Process an image.
 
-        Parameters
-        ----------
-        img: numpy.ndarray
-            Image array.
+        :param img: numpy.ndarray
+            Original image.
 
-        Return
-        ------
-        processed_image: numpy.ndarray
-            Processed image array.
+        :return: processed: numpy.ndarray
+            Processed image.
         """
         self.shape = img.shape
 
@@ -185,15 +158,11 @@ class TrafficVideo(object):
     def _search_lanelines(self, img):
         """Search and draw lane lines in an image
 
-        Parameters
-        ----------
-        img: numpy.ndarray
-            Image array.
+        :param img: numpy.ndarray
+            Original image.
 
-        Return
-        ------
-        img_with_lanelines: numpy.ndarray
-            Image array with lane line drawn in it.
+        :return img_with_lanelines: numpy.ndarray
+            Image with lane line drawn in it.
         """
         # Applying threshold
         threshed = self.thresh(img)
@@ -255,14 +224,11 @@ class TrafficVideo(object):
     def thresh(self, img):
         """Apply the combination of different thresholds
 
-        Parameters
-        ----------
-        img: numpy.ndarray
-            Image array.
+        :param img: numpy.ndarray
+            Original image.
 
-        Return
-        ------
-        Image array after applying threshold.
+        :return threshed: numpy.ndarray
+            Image after applying threshold.
         """
         # Apply gradient and color threshold
         th = Threshold(img)
@@ -280,39 +246,41 @@ class TrafficVideo(object):
         """Draw two lines
 
         One refers to the center of the car, and the other refers to
-        the center of the two lanelines.
+        the center of the two lane lines.
 
-        Paramter:
-        ----------
-        img: numpy.ndarray
-            Image array.
+        :param img: numpy.ndarray
+            Original image.
 
-        Return:
-        -------
-        Image numpy.ndarray.
+        :return new_img: numpy.ndarray.
+            Processed image.
         """
-        # Assume the camera is at the center of the car
-        car_center_pts = np.vstack([np.ones(50)*img.shape[1]/2,
-                                    np.arange(img.shape[0])[-50:]]).T
-        cv2.polylines(img, np.int32([car_center_pts]), 0, (0, 0, 0), thickness=5)
+        new_img = np.copy(img)
 
-        # Draw the center of the two lanelines
+        # Assume the camera is at the center of the car
+        car_center_pts = np.vstack([np.ones(50)*new_img.shape[1]/2,
+                                    np.arange(new_img.shape[0])[-50:]]).T
+        cv2.polylines(new_img, np.int32([car_center_pts]), 0, (0, 0, 0), thickness=5)
+
+        # Draw the center of the two lane lines
         if self.lines.left.ave_x.any() and self.lines.right.ave_x.any():
             off_center = (self.lines.left_space - self.lines.right_space)/2.0
-            cv2.putText(img, "off center: {:.1} m".format(off_center),
-                        (int(img.shape[1]/2 - 120), img.shape[0] - 150),
+            cv2.putText(new_img, "off center: {:.1} m".format(off_center),
+                        (int(new_img.shape[1]/2 - 120), new_img.shape[0] - 150),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
-        return img
+        return new_img
 
     def _draw_text(self, img):
         """Put texts on an image.
 
-        Parameters
-        ----------
-        img: numpy.ndarray
-            Image array.
+        :param img: numpy.ndarray
+            Original image.
+
+        :return new_img: numpy.ndarray.
+            Processed image.
         """
+        new_img = np.copy(img)
+
         c_norm = (255, 255, 255)
         c_warning = (180, 0, 0)
         font_name = cv2.FONT_HERSHEY_DUPLEX
@@ -324,8 +292,8 @@ class TrafficVideo(object):
         y_text_space = 45
 
         # Frame count
-        text_string = "Frame: {}".format(self.frame)
-        cv2.putText(img, text_string, (x_text, y_text),
+        text_string = "Frame: {}".format(self.iframe)
+        cv2.putText(new_img, text_string, (x_text, y_text),
                     font_name, font_scale, (255, 50, 200), font_thickness)
 
         # Line information
@@ -358,11 +326,11 @@ class TrafficVideo(object):
             right_space['color'] = c_warning
 
         y_text += y_text_space
-        cv2.putText(img, left_space['text'], (x_text, y_text),
+        cv2.putText(new_img, left_space['text'], (x_text, y_text),
                     font_name, font_scale, left_space['color'],
                     font_thickness)
         y_text += y_text_space
-        cv2.putText(img, right_space['text'], (x_text, y_text),
+        cv2.putText(new_img, right_space['text'], (x_text, y_text),
                     font_name, font_scale, right_space['color'],
                     font_thickness)
 
@@ -385,28 +353,27 @@ class TrafficVideo(object):
                     self.lines.ahead_bend_angle)
 
         y_text += y_text_space
-        cv2.putText(img, local_bending_radius['text'], (x_text, y_text),
+        cv2.putText(new_img, local_bending_radius['text'], (x_text, y_text),
                     font_name, font_scale, local_bending_radius['color'],
                     font_thickness)
         y_text += y_text_space
-        cv2.putText(img, ahead_bending_angle['text'], (x_text, y_text),
+        cv2.putText(new_img, ahead_bending_angle['text'], (x_text, y_text),
                     font_name, font_scale, ahead_bending_angle['color'],
                     font_thickness)
 
-        return img
+        return new_img
 
     def _search_cars(self, img):
         """Search cars in an image
 
-        Parameters
-        ----------
-        img: numpy.ndarray
-            Image array.
+        :param img: numpy.ndarray
+            Original image.
 
-        Return
-        ------
-        car_windows: list of ((x0, y0), (x1, y1))
+        :return car_windows: list of ((x0, y0), (x1, y1))
             Diagonal coordinates of the predicted windows.
+
+        :return car_confidences: list
+            Prediction confidences for the predicted windows.
         """
         x0 = 0
         x1 = img.shape[1]

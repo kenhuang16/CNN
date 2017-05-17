@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-from my_plot import double_plot
+from utilities import two_plots
 
 
 DEBUG = False
@@ -15,13 +15,24 @@ DEBUG = False
 class Threshold(object):
     """Theshold class"""
     def __init__(self, img):
-        """Initialization"""
+        """Initialization
+
+        :param img: numpy.ndarray
+            Original image.
+        """
         self.img = img
         self.channel_ = None
         self.binary = np.zeros(img.shape[:2]).astype(np.uint8)
 
     def transform(self, channel, direct=None, **kwargs):
-        """Apply threshold operation"""
+        """Apply threshold operation
+
+        :param channel: string
+            Name of the color channel.
+        :param direct: string
+            Name of the direction in gradient calculation.
+        """
+
         if direct is None:
             binary = self.color_thresh(channel, **kwargs)
         elif direct in ('mag', 'x', 'y', 'angle'):
@@ -32,7 +43,20 @@ class Threshold(object):
         self.binary = self.binary | binary
 
     def gradient_thresh(self, channel, direct, thresh=(0, 255), sobel_kernel=3):
-        """Apply gradient thresh-hold to a channel of an image"""
+        """Apply gradient threshold to a channel of an image
+
+        :param channel: string
+            Name of the color channel.
+        :param direct: string
+            Name of the direction in gradient calculation.
+        :param thresh: tuple, (min, max)
+            Threshold values.
+        :param sobel_kernel: int
+            Sober kernel size.
+
+        :return: binary: numpy.ndarray
+            Binary image.
+        """
         if channel == 'gray':
             self.channel_ = cv2.cvtColor(self.img, cv2.COLOR_RGB2GRAY)
         else:
@@ -71,7 +95,16 @@ class Threshold(object):
         return binary
 
     def color_thresh(self, channel, thresh=(0, 255)):
-        """Apply color thresh-hold to a channel of an image"""
+        """Apply color threshold to a channel of an image
+
+        :param channel: string
+            Name of the color channel.
+        :param thresh: tuple, (min, max)
+            Threshold values.
+
+        :return: binary: numpy.ndarray
+            Binary image.
+        """
         if channel == 'gray':
             self.channel_ = cv2.cvtColor(self.img, cv2.COLOR_RGB2GRAY)
         else:
@@ -89,6 +122,7 @@ class Threshold(object):
         binary[(self.channel_ > thresh[0]) & (self.channel_ <= thresh[1])] = 1
 
         return binary
+
 
 if __name__ == "__main__":
     test_image = "./output_images_P4/threshold_original.jpg"
@@ -111,8 +145,7 @@ if __name__ == "__main__":
         else:
             title2 = param['direct'] + ' gradient thresh ' + str(param['thresh'])
 
-        double_plot(
-            th.channel_, th.binary, titles=(title1, title2, ''))
+        two_plots(th.channel_, th.binary, titles=(title1, title2, ''))
 
     threshed = th.binary
     plt.imshow(threshed, cmap='gray')

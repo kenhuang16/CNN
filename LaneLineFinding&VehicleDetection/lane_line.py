@@ -32,12 +32,10 @@ class CurveLine(object):
     def __init__(self, y, order=2):
         """Instantiate the CurveLine class
 
-        Parameters
-        ----------
-        y: 1-D array-like
+        :param y: 1-D array-like
             Vertical coordinates of the line.
             use in fitting x=f(y)
-        order: int
+        :param order: int
             Order of the polynomial fit.
         """
         # polynomial coefficients for the current fit
@@ -64,12 +62,10 @@ class TwinLine(CurveLine):
     def __init__(self, y, div=0.5):
         """Initialize the TwinLine class
 
-        Parameters
-        ----------
-        y: 1D array like
+        :param y: 1D array like
             Vertical coordinates of the line.
             use in fitting x=f(y)
-        div: float, 0.0 < div < 1.0
+        :param div: float, 0.0 < div < 1.0
             The location to divide the left and right part of an image.
         """
         super().__init__(y)
@@ -87,10 +83,8 @@ class TwinLine(CurveLine):
     def search(self, img):
         """Search lines in an image
 
-        Parameter
-        ---------
-        img: numpy.ndarray()
-            Image array.
+        :param img: numpy.ndarray
+            Original image.
         """
         width = img.shape[1]
 
@@ -139,12 +133,10 @@ class LaneLine(CurveLine):
     def __init__(self, y, max_fail=25):
         """Initialization
 
-        Parameters
-        ----------
-        y: 1D array like
+        :param y: 1D array like
             Vertical coordinates of the line.
             use in fitting x=f(y).
-        max_fail: int
+        :param max_fail: int
             Maximum allowed poor fit before re-search the whole area.
         """
         super().__init__(y)
@@ -306,23 +298,21 @@ class LaneLine(CurveLine):
                min_peak_intensity=100):
         """Search the possible points in a line
 
-        Parameters
-        ----------
-        img: numpy.ndarray
-            Image array
-        x_lim: tuple like, (left, right)
+        :param img: numpy.ndarray
+            Original image.
+        :param x_lim: tuple like, (left, right)
             Fractional x boundary of the image to search.
-        p0: tuple like
+        :param p0: tuple like
             Initial value of the polynomial coefficients.
-        conv_window: int
+        :param conv_window: int
             Width of the window for convolution.
-        jitter: int
+        :param jitter: int
             Search range (in x) along the reference line.
-        moving_window: int
+        :param moving_window: int
             Size of the moving window.
-        moving_step: int
+        :param moving_step: int
             Step size of the window moving in y direction.
-        min_peak_intensity: int
+        :param min_peak_intensity: int
             Minimum intensity to be recognized as a peak.
         """
         width = img.shape[1]

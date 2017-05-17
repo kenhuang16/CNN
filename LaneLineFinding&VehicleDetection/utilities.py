@@ -1,18 +1,19 @@
 """
------------------------
-function change_colorspace()
+- function change_colorspace()
 
 Convert the color space of an image
 
------------------------
-function non_maxima_suppression()
+- function non_maxima_suppression()
 
 Apply the non-maxima suppresion to boxes.
 
------------------------
-function draw_windows()
+- function draw_windows()
 
 Draw rectangular windows in an image.
+
+- function two_plots()
+
+Plot the original and processed image together.
 
 """
 
@@ -24,14 +25,14 @@ import matplotlib.pyplot as plt
 def change_colorspace(img, color_space):
     """Convert the color space of an image
 
-    Parameters
-    ----------
-    img: numpy.ndarray
-        Image array.
+    :param img: numpy.ndarray
+        Original image.
 
-    Returns
-    -------
-    New image array.
+    :param color_space: string
+        Color space of the new image.
+
+    :return new_img: numpy.ndarray
+        Image after changing color space
     """
     if len(img.shape) < 3:
         raise ValueError("A color image is required!")
@@ -137,20 +138,17 @@ def non_maxima_suppression(boxes, scores, threshold=0.5):
 def sliding_window(img, window_size=(64, 64), step_size=(16, 16), scale=(1.0, 1.0)):
     """Search cars in an image
 
-    Parameters
-    ----------
-    img: numpy.ndarray
+    :param img: numpy.ndarray
         Image array.
-    window_size: 1x2 tuple, int
+    :param window_size: 1x2 tuple, int
         Size of the sliding window.
-    step_size: 1x2 tuple, int
+    :param step_size: 1x2 tuple, int
         Size of the sliding step.
-    scale: 1x2 tuple, float
+    :param scale: 1x2 tuple, float
         Scale of the original image
 
-    Return
-    ------
-    windows: a list of window images with the size of "window_size"
+    :return windows: list
+        A list of window images with the size of "window_size"
     """
     new_x_size = np.int(img.shape[1]*scale[1])
     new_y_size = np.int(img.shape[0]*scale[0])
@@ -179,7 +177,7 @@ def draw_windows(img, windows, color=(0, 0, 255), thickness=4):
     """Draw rectangular windows in an image
 
     :param img: numpy.ndarray
-        Image array.
+        Original image.
     :param windows: list of ((x0, y0), (x1, y1))
         Diagonal coordinates of the windows.
     :param color: tuple
@@ -187,8 +185,8 @@ def draw_windows(img, windows, color=(0, 0, 255), thickness=4):
     :param thickness: int
         Line thickness.
 
-    :return: numpy.ndarray
-        New image array with windows imprinted
+    :return new_img: numpy.ndarray
+        New image with windows imprinted
     """
     new_img = np.copy(img)
     for window in windows:
@@ -256,3 +254,43 @@ def draw_windows(img, windows, color=(0, 0, 255), thickness=4):
     #
     #     plt.tight_layout()
     #     plt.show()
+
+
+def two_plots(img1, img2, titles=('', '', ''), output=''):
+    """Plot two images together
+
+    It is used to draw a comparison between the original and
+    final images.
+
+    :param img1: numpy.ndarray
+        The first image.
+    :param img2: numpy.ndarray
+        The second image.
+    :param titles: tuple
+        Titles in the form ('first', 'second', 'super title')
+    :param output: string
+        Name of the output image if specified.
+    """
+    ft_size = 18
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.5))
+    if len(img1.shape) == 3:
+        ax1.imshow(img1)
+    else:
+        ax1.imshow(img1, cmap='gray')
+    ax1.set_title(titles[0], fontsize=ft_size)
+
+    if len(img2.shape) == 3:
+        ax2.imshow(img2)
+    else:
+        ax2.imshow(img2, cmap='gray')
+    ax2.set_title(titles[1], fontsize=ft_size)
+
+    plt.suptitle(titles[2], fontsize=ft_size)
+    plt.tight_layout()
+    if output:
+        plt.savefig(output)
+        print("Image is saved at {}".format(output))
+        plt.close()
+    else:
+        plt.show()

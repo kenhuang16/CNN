@@ -14,10 +14,11 @@ from traffic import TrafficVideo
 from calibration import calibrate_camera, undistort_image
 from image_transform import calibrate_perspective_trans, perspective_trans
 import matplotlib.pyplot as plt
-from my_plot import double_plot
 
 from car_classifier import CarClassifier
 from parameters import project_video, test_video, thresh_params
+from utilities import two_plots
+
 
 
 my_video = project_video
@@ -61,8 +62,8 @@ cv2.polylines(test_img_undistorted, np.int32([source_points]),
               1, (255, 255, 0), thickness=4)
 cv2.polylines(warped, np.int32([distortion_points]),
               1, (255, 255, 0), thickness=4)
-double_plot(test_img_undistorted, warped,
-            ('original', 'warped', 'perspective transformation'), output='')
+two_plots(test_img_undistorted, warped,
+          ('original', 'warped', 'perspective transformation'), output='')
 
 # -----------------------------------------------------------------------------
 # Process the video
@@ -75,7 +76,7 @@ f1 = TrafficVideo(input, camera_cali_file=camera_cali_file,
 
 for i in np.arange(900, 2500, 1):
     print("Frame {}".format(i))
-    image = f1.process_video_image(frame=i)
+    image = f1.process_video_image(iframe=i)
     #misc.imsave('test_images/test_img.png', test_img)
     fig, ax = plt.subplots()
     ax.imshow(image)

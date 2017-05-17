@@ -8,20 +8,18 @@ import pickle
 import cv2
 from scipy import misc
 
-from my_plot import double_plot
+from utilities import two_plots
 
 
 def calibrate_perspective_trans(src, dst, output="perspective_trans.pkl"):
     """Get the transform and inverse transform matrix of the
        perspective transform.
 
-    Parameters
-    ----------
-    src: numpy.ndarray()
+    :param src: numpy.ndarray
         Source points.
-    dst: numpy.ndarray()
+    :param dst: numpy.ndarray()
         Object points.
-    output: string
+    :param output: string
         Pickle file to store the perspective transform parameters.
     """
     p_matrix = cv2.getPerspectiveTransform(src, dst)
@@ -38,13 +36,11 @@ def calibrate_perspective_trans(src, dst, output="perspective_trans.pkl"):
 def perspective_trans(img, filename, inverse=False):
     """Apply a perspective transform.
 
-    Parameters
-    ----------
-    img: numpy.ndarray()
-        Image array.
-    filename: string
+    :param img: numpy.ndarray
+        Original image.
+    :param filename: string
         File stores the transform matrices.
-    inverse: Boolean
+    :param inverse: Boolean
         True for inverse transform.
     """
     with open(filename, "rb") as fp:
@@ -76,5 +72,4 @@ if __name__ == "__main__":
     # Visualize the transform
     cv2.polylines(img, np.int32([src]), 1, (255, 255, 0), thickness=4)
     cv2.polylines(warped, np.int32([dst]), 1, (255, 255, 0), thickness=4)
-    double_plot(img, warped,
-                ('original', 'warped', 'perspective transform'), output='')
+    two_plots(img, warped, ('original', 'warped', 'perspective transform'), output='')

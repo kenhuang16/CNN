@@ -7,22 +7,20 @@ import cv2
 import glob
 import pickle
 
-from my_plot import double_plot
+from utilities import two_plots
 
 
 def calibrate_camera(chess_board_images, pattern_size=(None, None),
                      output="camera_cali.pkl", show_chess_board=True):
     """Calibrate camera
 
-    Parameters
-    ----------
-    chess_board_images: list of strings
+    :param chess_board_images: list of strings
         List of chess board file names.
-    pattern_size: tuple, 2x1
+    :param pattern_size: tuple, 2x1
         Number of inner corners per a chessboard row and column.
-    output: string
+    :param output: string
         Pickle file for storing the result.
-    show_chess_board: Boolean
+    :param show_chess_board: Boolean
         True for showing each result of finding corners.
     """
     pts_row = pattern_size[0]
@@ -65,26 +63,27 @@ def calibrate_camera(chess_board_images, pattern_size=(None, None),
     print("Calibration of the camera was saved in {}.".format(output))
 
 
-def undistort_image(image, obj_points, img_points):
+def undistort_image(img, obj_points, img_points):
     """Undistort an image
 
-    parameters
-    ----------
-    image: numpy.ndarray()
-        Image array.
-    obj_points: List of numpy.ndarray. Each array has the shape
-                (N, 3), where N is the number of points.
+    :param img: numpy.ndarray
+        Original image.
+    :param obj_points: List of numpy.ndarray. Each array has the shape
+                       (N, 3), where N is the number of points.
         List of 3d points in the real world space of each image.
-    img_points: List of numpy.ndarray. Each array has the shape
-                (N, 1, 2), where N is the number of points.
+    :param img_points: List of numpy.ndarray. Each array has the shape
+                       (N, 1, 2), where N is the number of points.
         List of 2d points in the image plane of each each image
+
+    :return undistorted: numpy.ndarray
+        Undistorted image.
     """
     retval, camera_matrix, dist_coeffs, rvecs, tvecs = \
-        cv2.calibrateCamera(obj_points, img_points, image.shape[:2],
+        cv2.calibrateCamera(obj_points, img_points, img.shape[:2],
                             None, None)
 
     undistorted = cv2.undistort(
-        image, camera_matrix, dist_coeffs, None, camera_matrix)
+        img, camera_matrix, dist_coeffs, None, camera_matrix)
 
     return undistorted
 
@@ -104,5 +103,5 @@ if __name__ == "__main__":
     test_img_undistorted = undistort_image(
         test_img, camera_cali_["obj_points"], camera_cali_["img_points"])
 
-    double_plot(test_img, test_img_undistorted,
-                ('original', 'undistorted', 'camera calibration'), output='')
+    two_plots(test_img, test_img_undistorted,
+              ('original', 'undistorted', 'camera calibration'), output='')
