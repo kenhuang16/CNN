@@ -7,7 +7,7 @@ Jun Zhu
 ![alt text](highlight-1.png)
 
 
-##Camera Calibration
+## Camera Calibration
 
 The camera distortion was calibrated by the [chessboard images](./camera_cal/). The chessboard was assumed to be fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.
 
@@ -15,7 +15,7 @@ Then the output `obj_points` and `img_points` were used to calculate the camera 
 
 ![image](./output_images/chess_board_undistorted.jpg "Chessboard undistortion")
 
-##LaneLine Detection
+## LaneLine Detection
 
 Image undistortion -> threshold -> perspective transform ->
 
