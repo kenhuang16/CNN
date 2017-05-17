@@ -63,8 +63,16 @@ The total number of data is 17760 and the total number of features is 1323 (441x
 
 ### 1. Histogram of Oriented Gradients (HOG)
 
+![image](./output_images/hog_features_and_images.png "HOG")
+
 ### 2. Local Binary Pattern (LBP) 
 
+![image](./output_images/lbp_features_and_images.png "LBP")
+
+### 3. Sliding Window Search
+
+![image](./output_images/sliding_window_images.png "sliding window images")
+![image](./output_images/sliding_window_features.png "sliding window features")
 
 ## References
 
