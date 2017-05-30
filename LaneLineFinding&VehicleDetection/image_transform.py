@@ -6,7 +6,6 @@ import os
 import numpy as np
 import pickle
 import cv2
-from scipy import misc
 
 from utilities import two_plots
 
@@ -57,7 +56,8 @@ def perspective_trans(img, filename, inverse=False):
 if __name__ == "__main__":
     test_img = './test_images/test_image_perspective_trans.png'
 
-    img = misc.imread(test_img)
+    img = cv2.imread(test_img)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     src = np.float32([[0, 720], [570, 450], [708, 450], [1280, 720]])
     dst = np.float32([[0, 720], [0, 0], [1280, 0], [1280, 720]])

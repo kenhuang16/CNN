@@ -97,6 +97,7 @@ if __name__ == "__main__":
         chess_board_images_, pattern_size=pattern_size_, output=camera_cali_file)
 
     test_img = cv2.imread("camera_cal/calibration1.jpg")
+    test_img = cv2.cvtColor(test_img, cv2.COLOR_BGR2RGB)
 
     with open(camera_cali_file, "rb") as fp:
         camera_cali_ = pickle.load(fp)

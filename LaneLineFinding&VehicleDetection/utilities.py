@@ -25,9 +25,10 @@ import matplotlib.pyplot as plt
 def change_colorspace(img, color_space):
     """Convert the color space of an image
 
+    The readin image is assumed to have RGB color space.
+
     :param img: numpy.ndarray
         Original image.
-
     :param color_space: string
         Color space of the new image.
 
@@ -37,11 +38,9 @@ def change_colorspace(img, color_space):
     if len(img.shape) < 3:
         raise ValueError("A color image is required!")
 
-    # apply color conversion if other than 'RGB'
+    # apply color conversion if other than 'BGR'
     if color_space == 'GRAY':
         new_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    elif color_space == 'RGB':
-        new_img = np.copy(img)
     elif color_space == 'HSV':
         new_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     elif color_space == 'LUV':
@@ -52,6 +51,8 @@ def change_colorspace(img, color_space):
         new_img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
     elif color_space == 'YCrCb':
         new_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    elif color_space == 'RGB':
+        new_img = np.copy(img)
     else:
         raise ValueError("Unknown color space!")
 

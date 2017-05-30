@@ -19,6 +19,7 @@ class Threshold(object):
 
         :param img: numpy.ndarray
             Original image.
+            The original image is assumed to have the RGB color space.
         """
         self.img = img
         self.channel_ = None
@@ -125,7 +126,7 @@ class Threshold(object):
 
 
 if __name__ == "__main__":
-    test_image = "./output_images_P4/threshold_original.jpg"
+    test_image = "./output_images/threshold_original.jpg"
 
     thresh_params = [
         {'type': 'gradient', 'channel': 's', 'direct': 'x', 'thresh': (20, 100)},
@@ -133,7 +134,9 @@ if __name__ == "__main__":
         {'type': 'color', 'channel': 'gray', 'direct': None, 'thresh': (190, 255)}
     ]
 
-    img = plt.imread(test_image)
+    img = cv2.imread(test_image)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
     th = Threshold(img)
     for param in thresh_params:
         th.transform(param['channel'], param['direct'], thresh=param['thresh'])
