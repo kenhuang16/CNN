@@ -16,6 +16,7 @@ Draw rectangular windows in an image.
 Plot the original and processed image together.
 
 """
+import re
 
 import cv2
 import numpy as np
@@ -38,18 +39,17 @@ def change_colorspace(img, color_space):
     if len(img.shape) < 3:
         raise ValueError("A color image is required!")
 
-    # apply color conversion if other than 'BGR'
-    if color_space == 'GRAY':
+    if re.search(r'^GRAY', color_space, re.IGNORECASE):
         new_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    elif color_space == 'HSV':
+    elif re.search(r'^HSV', color_space, re.IGNORECASE):
         new_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    elif color_space == 'LUV':
+    elif re.search(r'^LUV', color_space, re.IGNORECASE):
         new_img = cv2.cvtColor(img, cv2.COLOR_BGR2LUV)
-    elif color_space == 'HLS':
+    elif re.search(r'^HLS', color_space, re.IGNORECASE):
         new_img = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
-    elif color_space == 'YUV':
+    elif re.search(r'^YUV', color_space, re.IGNORECASE):
         new_img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
-    elif color_space == 'YCrCb':
+    elif re.search(r'^YCrCb', color_space, re.IGNORECASE):
         new_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
     elif color_space == 'RGB':
         new_img = np.copy(img)

@@ -231,16 +231,20 @@ class TrafficVideo(object):
             Image after applying threshold.
         """
         # Apply gradient and color threshold
-        th = Threshold(img)
+        binary = None
         for param in self.thresh_params:
-            th.transform(param['channel'], param['direct'], thresh=param['thresh'])
+            th = Threshold(img, param['color_space'], param['channel'])
 
-        threshed = th.binary
+            th.transform(param['direct'], thresh=param['thresh'])
+            if binary is None:
+                binary = th.binary
+            else:
+                binary |= th.binary
 
         # Remove the influence from the front of the car
-        threshed[-40:, :] = 0
+        binary[-40:, :] = 0
 
-        return threshed
+        return binary
 
     def _draw_center_indicator(self, img):
         """Draw two lines

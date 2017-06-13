@@ -41,7 +41,7 @@ harder_challenge_video = {
 
 # Parameters for thresh-hold operations
 thresh_params = [
-    {'type': 'gradient', 'channel': 's', 'direct': 'x', 'thresh': (20, 100)},
-    {'type': 'color', 'channel': 's', 'direct': None, 'thresh': (100, 255)},
-    {'type': 'color', 'channel': 'gray', 'direct': None, 'thresh': (190, 255)}
+    {'color_space': 'hls', 'channel': 2, 'direct': 'x', 'thresh': (20, 100)},
+    {'color_space': 'hls', 'channel': 2, 'direct': None, 'thresh': (100, 255)},
+    {'color_space': 'gray', 'channel': None, 'direct': None, 'thresh': (190, 255)}
 ]
