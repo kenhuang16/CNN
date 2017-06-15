@@ -7,3 +7,4 @@
 BehaviorCloning/data*
 BehaviorCloning/Default*
 LaneLineFinding&VehicleDetection/data
+TrafficSignClassifier/data/*.p
