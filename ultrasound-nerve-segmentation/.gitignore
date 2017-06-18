@@ -1,0 +1,6 @@
+data
+predicted
+*.pyc
+*.npy
+*.csv
+*.hdf5
