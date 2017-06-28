@@ -1,19 +1,14 @@
 #!/usr/bin/python
 """
 """
-import time
 import pickle
 import numpy as np
 import cv2
 from moviepy.editor import VideoFileClip
-import matplotlib.pyplot as plt
-from scipy.ndimage.measurements import label, center_of_mass
 
 from lane_line import TwinLine
 from threshold import Threshold
-from calibration import undistort_image
-
-from utilities import draw_windows, non_maxima_suppression
+from utilities import draw_boxes, search_cars
 
 
 INF = 1.0e21
@@ -126,6 +121,19 @@ class TrafficVideo(object):
 
         return self._process_image(img)
 
+    def get_video_image(self, iframe=1):
+        """get a frame in a video
+
+        :param iframe: int
+            Frame index.
+
+        :return: frame image.
+        """
+        self.iframe = iframe
+        img = self.clip.get_frame(int(iframe)/self.clip.fps)
+
+        return img
+
     def _process_image(self, img):
         """Process an image.
 
@@ -149,9 +157,11 @@ class TrafficVideo(object):
             processed = np.copy(undistorted)
 
         if self._is_search_car is True:
-            boxes, scores = self._search_cars(undistorted)
-            processed = draw_windows(
-                processed, non_maxima_suppression(boxes, scores, 0.5))
+            boxes = search_cars(processed, self.car_classifier,
+                                scale_ratios=(0.5, 0.7), confidence_thresh=0.2,
+                                overlap_thresh=0.2, step_size=(0.125, 0.125),
+                                region=((0, 0.5), (1.0, 0.9)))
+            processed = draw_boxes(processed, boxes)
 
         return processed
 
@@ -235,7 +245,7 @@ class TrafficVideo(object):
         for param in self.thresh_params:
             th = Threshold(img, param['color_space'], param['channel'])
 
-            th.transform(param['direct'], thresh=param['thresh'])
+            th.transform(param['direction'], thresh=param['thresh'])
             if binary is None:
                 binary = th.binary
             else:
@@ -366,44 +376,3 @@ class TrafficVideo(object):
                     font_thickness)
 
         return new_img
-
-    def _search_cars(self, img):
-        """Search cars in an image
-
-        :param img: numpy.ndarray
-            Original image.
-
-        :return car_windows: list of ((x0, y0), (x1, y1))
-            Diagonal coordinates of the predicted windows.
-
-        :return car_confidences: list
-            Prediction confidences for the predicted windows.
-        """
-        x0 = 0
-        x1 = img.shape[1]
-        y0 = int(0.48 * img.shape[0])
-        y1 = int(0.90 * img.shape[0])
-        search_region = img[y0:y1, x0:x1, :]
-
-        # Applying sliding window search with different scale ratios
-        scale_ratios = [0.7, 0.6, 0.5]
-        windows_confidences = []
-        windows_coordinates = []
-        for ratio in scale_ratios:
-            predictions, windows = self.car_classifier.sliding_window_predict(
-                search_region, step_size=(16, 16), binary=False, scale=(ratio, ratio))
-            windows_confidences.extend(predictions)
-            windows_coordinates.extend(windows)
-
-        # pick windows with confidence higher than threshold
-        confidence_thresh = 0.5
-        car_windows = []
-        car_confidences = []
-        for window, confidence in zip(windows_coordinates, windows_confidences):
-            if confidence > confidence_thresh:
-                point1 = (window[0][0] + x0, window[0][1] + y0)
-                point2 = (window[1][0] + x0, window[1][1] + y0)
-                car_windows.append((point1, point2))
-                car_confidences.append(confidence)
-
-        return car_windows, car_confidences

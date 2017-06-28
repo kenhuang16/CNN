@@ -3,6 +3,18 @@
 Define paramters
 """
 import numpy as np
+import glob
+
+car_files = []
+car_files.extend(glob.glob("data/vehicles/KITTI_extracted/*.png"))
+car_files.extend(glob.glob("data/vehicles/GTI_Far/*.png"))
+car_files.extend(glob.glob("data/vehicles/GTI_Left/*.png"))
+car_files.extend(glob.glob("data/vehicles/GTI_Right/*.png"))
+car_files.extend(glob.glob("data/vehicles/GTI_MiddleClose/*.png"))
+
+noncar_files = []
+noncar_files.extend(glob.glob("data/non-vehicles/Extras/*.png"))
+noncar_files.extend(glob.glob("data/non-vehicles/GTI/*.png"))
 
 w_img = 1280
 h_img = 720
@@ -41,7 +53,7 @@ harder_challenge_video = {
 
 # Parameters for thresh-hold operations
 thresh_params = [
-    {'color_space': 'hls', 'channel': 2, 'direct': 'x', 'thresh': (20, 100)},
-    {'color_space': 'hls', 'channel': 2, 'direct': None, 'thresh': (100, 255)},
-    {'color_space': 'gray', 'channel': None, 'direct': None, 'thresh': (190, 255)}
+    {'color_space': 'hls', 'channel': 2, 'direction': 'x', 'thresh': (20, 100)},
+    {'color_space': 'hls', 'channel': 2, 'direction': None, 'thresh': (100, 255)},
+    {'color_space': 'gray', 'channel': None, 'direction': None, 'thresh': (190, 255)}
 ]

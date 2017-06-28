@@ -9,8 +9,6 @@ This file holds two classes for feature extraction:
 """
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 
 from skimage.feature import hog as skimage_hog
 from skimage.feature import local_binary_pattern as skimage_lbp
@@ -92,16 +90,16 @@ class HogExtractor(object):
             return hog_features
 
     def sliding_window_extract(self, img, window_size=(64, 64),
-                               step_size=(16, 16), scale=(1.0, 1.0)):
+                               step_size=(1.0, 1.0), scale=1.0):
         """Apply sliding window HOG feature extraction
 
         :param img: numpy.ndarray
             Image array.
         :param window_size: 1x2 tuple, int
             Sliding window size in (x, y).
-        :param step_size: 1x2 tuple, int
-            Sliding step in (x, y).
-        :param scale: 1x2 tuple, float
+        :param step_size: 1x2 tuple, float
+            Sliding step in (x, y) in the unit of the image shape.
+        :param scale: float
             Scale of the original image.
 
         :return: window_features: a list of 1D numpy.array
@@ -110,7 +108,7 @@ class HogExtractor(object):
             Window coordinates in ((x0, y0), (x1, y1))
         """
         img_resized = cv2.resize(
-            img, (np.int(img.shape[1]*scale[1]), np.int(img.shape[0]*scale[0])))
+            img, (np.int(img.shape[1]*scale), np.int(img.shape[0]*scale)))
 
         # extract the features of the whole image
         hog_features = self.extract(img_resized, ravel=False)
@@ -119,7 +117,8 @@ class HogExtractor(object):
         window_coordinates = []
         y0_window = 0
         y1_window = window_size[1]
-
+        x_step = int(step_size[0]*window_size[0])
+        y_step = int(step_size[1]*window_size[1])
         # Apply sliding window
         while y1_window <= img_resized.shape[0]:
             x0_window = 0
@@ -141,14 +140,14 @@ class HogExtractor(object):
 
                 window_features.append(np.concatenate(combined).ravel())
                 window_coordinates.append(
-                    ((np.int(x0_window/scale[1]), np.int(y0_window/scale[0])),
-                     (np.int(x1_window/scale[1]), np.int(y1_window/scale[0]))))
+                    ((np.int(x0_window/scale), np.int(y0_window/scale)),
+                     (np.int(x1_window/scale), np.int(y1_window/scale))))
 
-                x0_window += step_size[0]
-                x1_window += step_size[0]
+                x0_window += x_step
+                x1_window += x_step
 
-            y0_window += step_size[1]
-            y1_window += step_size[1]
+            y0_window += y_step
+            y1_window += y_step
 
         return window_features, window_coordinates
 
@@ -247,16 +246,16 @@ class LbpExtractor(object):
             return np.concatenate(lbp_features).astype(np.float32)
 
     def sliding_window_extract(self, img, window_size=(64, 64),
-                               step_size=(16, 16), scale=(1.0, 1.0)):
+                               step_size=(1.0, 1.0), scale=1.0):
         """Apply sliding window LBP feature extraction
 
         :param img: numpy.ndarray
             Image array.
         :param window_size: 1x2 tuple, int
             Sliding window size in (x, y).
-        :param step_size: 1x2 tuple, int
-            Sliding step in (x, y).
-        :param scale: 1x2 tuple, float
+        :param step_size: 1x2 tuple, float
+            Sliding step in (x, y) in the unit of the image shape.
+        :param scale: float
             Scale of the original image.
 
         :return: window_features: a list of 1D numpy.array
@@ -265,13 +264,14 @@ class LbpExtractor(object):
             Window coordinates in ((x0, y0), (x1, y1))
         """
         img_resized = cv2.resize(
-            img, (np.int(img.shape[1]*scale[1]), np.int(img.shape[0]*scale[0])))
+            img, (np.int(img.shape[1]*scale), np.int(img.shape[0]*scale)))
 
         window_features = []
         window_coordinates = []
+        x_step = int(step_size[0]*window_size[0])
+        y_step = int(step_size[1]*window_size[1])
         y0_window = 0
         y1_window = window_size[1]
-
         # Apply sliding window
         while y1_window <= img_resized.shape[0]:
             x0_window = 0
@@ -280,14 +280,14 @@ class LbpExtractor(object):
                 window_img = img_resized[y0_window:y1_window, x0_window:x1_window]
                 window_features.append(self.extract(window_img))
                 window_coordinates.append(
-                    ((np.int(x0_window/scale[1]), np.int(y0_window/scale[0])),
-                     (np.int(x1_window/scale[1]), np.int(y1_window/scale[0]))))
+                    ((np.int(x0_window/scale), np.int(y0_window/scale)),
+                     (np.int(x1_window/scale), np.int(y1_window/scale))))
 
-                x0_window += step_size[0]
-                x1_window += step_size[0]
+                x0_window += x_step
+                x1_window += x_step
 
-            y0_window += step_size[1]
-            y1_window += step_size[1]
+            y0_window += y_step
+            y1_window += y_step
 
         return window_features, window_coordinates
 
@@ -303,104 +303,3 @@ class LbpExtractor(object):
         lbp_img = skimage_lbp(img, self._n_neighbors, self._radius)
 
         return lbp_img
-
-
-if __name__ == "__main__":
-    case = 2
-
-    # Test single image HOG feature extraction
-    if case == 1:
-        image = "data/vehicles/KITTI_extracted/1.png"
-
-        img = cv2.imread(image)
-
-        extractor = HogExtractor(visual=True, colorspace='YCrCb', cell_per_block=(1, 1))
-        hog_features, hog_images = extractor.extract(img)
-
-        fig = plt.figure(figsize=(9, 6))
-        gs = gridspec.GridSpec(2, 3)
-        ax1 = fig.add_subplot(gs[0, 0])
-        ax2 = fig.add_subplot(gs[0, 1:3])
-
-        ax1.imshow(img)
-        ax2.plot(hog_features)
-        for i in range(3):
-            try:
-                fig.add_subplot(gs[1, i]).imshow(hog_images[i])
-            except:
-                pass
-
-        plt.suptitle("HOG features and images (colorspace: {})".
-                     format(extractor._colorspace))
-        plt.show()
-
-    # Test single image LBP feature extraction
-    elif case == 2:
-        image = "data/vehicles/KITTI_extracted/1.png"
-        img = cv2.imread(image)
-
-        extractor = LbpExtractor(colorspace='YCrCb')
-        lbp_features = extractor.extract(img)
-        extractor._visual = True
-        lbp_images = extractor.extract(img)
-
-        fig = plt.figure(figsize=(9, 6))
-        gs = gridspec.GridSpec(2, 3)
-        ax1 = fig.add_subplot(gs[0, 0])
-        ax2 = fig.add_subplot(gs[0, 1:3])
-
-        ax1.imshow(img)
-        ax2.plot(lbp_features)
-        for i in range(3):
-            try:
-                fig.add_subplot(gs[1,i]).imshow(lbp_images[i])
-            except:
-                pass
-
-        plt.suptitle("LBP features and images (colorspace: {})".
-                     format(extractor._colorspace))
-        plt.show()
-
-    # Test sliding window feature extraction
-    elif case == 3:
-        extractor = HogExtractor(colorspace='YCrCb', cell_per_block=(1, 1))
-        title = "HOG features"
-
-        # extractor = LbpExtractor(colorspace='YCrCb')
-        # title = "LBP features"
-
-        image = "test_images/test_image_two_cars.png"
-
-        img = cv2.imread(image)
-        b, g, r = cv2.split(img)  # get b,g,r
-        plt.imshow(cv2.merge([r, g, b]))
-        plt.show()
-
-        features, windows = \
-            extractor.sliding_window_extract(img, step_size=(64, 64))
-
-        fig1, axs1 = plt.subplots(6, 6, figsize=(8, 8))
-        i = 120
-        for ax in axs1.flatten():
-            if i > len(features) - 1:
-                break
-            ax.imshow(img[windows[i][0][1]:windows[i][1][1],
-                          windows[i][0][0]:windows[i][1][0]])
-            ax.set_axis_off()
-            i += 1
-        plt.subplots_adjust(wspace=0.05)
-        plt.suptitle("sliding windows")
-        plt.show()
-
-        fig2, axs2 = plt.subplots(6, 6, figsize=(8, 8))
-        i = 100
-        for ax in axs2.flatten():
-            if i > len(features) - 1:
-                break
-            ax.plot(features[i])
-            ax.set_axis_off()
-            i += 1
-        plt.subplots_adjust(wspace=0.05)
-
-        plt.suptitle(title)
-        plt.show()

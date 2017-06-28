@@ -38,23 +38,23 @@ class Threshold(object):
         # initialize the binary image
         self.binary = np.zeros(img.shape[:2]).astype(np.uint8)
 
-    def transform(self, direct=None, **kwargs):
+    def transform(self, direction=None, **kwargs):
         """Apply threshold operation
 
-        :param direct: string
+        :param direction: string
             Name of the direction in gradient calculation.
         """
-        if direct is None:
+        if direction is None:
             self.color_thresh(**kwargs)
-        elif direct in ('mag', 'x', 'y', 'angle'):
-            self.gradient_thresh(direct, **kwargs)
+        elif direction in ('mag', 'x', 'y', 'angle'):
+            self.gradient_thresh(direction, **kwargs)
         else:
-            raise ValueError('Unknown value for direct')
+            raise ValueError('Unknown value for direction')
 
-    def gradient_thresh(self, direct, thresh=(0, 255), sobel_kernel=3):
+    def gradient_thresh(self, direction, thresh=(0, 255), sobel_kernel=3):
         """Apply gradient threshold to a channel of an image
 
-        :param direct: string
+        :param direction: string
             Name of the direction in gradient calculation.
         :param thresh: tuple, (min, max)
             Threshold values.
@@ -66,13 +66,13 @@ class Threshold(object):
         abs_sobely = np.abs(
             cv2.Sobel(self.img, cv2.CV_64F, 0, 1, ksize=sobel_kernel))
 
-        if direct == 'mag':
+        if direction == 'mag':
             value = np.sqrt(abs_sobelx ** 2 + abs_sobely ** 2)
-        elif direct == 'x':
+        elif direction == 'x':
             value = abs_sobelx
-        elif direct == 'y':
+        elif direction == 'y':
             value = abs_sobely
-        elif direct == 'angle':
+        elif direction == 'angle':
             value = np.arctan2(abs_sobely, abs_sobelx)
         else:
             raise ValueError('Unknown gradient type!')
@@ -96,9 +96,9 @@ if __name__ == "__main__":
     test_image = "./output_images/threshold_original.jpg"
 
     thresh_params = [
-        {'color_space': 'hls', 'channel': 2, 'direct': 'x', 'thresh': (20, 100)},
-        {'color_space': 'hls', 'channel': 2, 'direct': None, 'thresh': (100, 255)},
-        {'color_space': 'gray', 'channel': None, 'direct': None, 'thresh': (190, 255)}
+        {'color_space': 'hls', 'channel': 2, 'direction': 'x', 'thresh': (20, 100)},
+        {'color_space': 'hls', 'channel': 2, 'direction': None, 'thresh': (100, 255)},
+        {'color_space': 'gray', 'channel': None, 'direction': None, 'thresh': (190, 255)}
     ]
 
     img = cv2.imread(test_image)
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     for param in thresh_params:
         th = Threshold(img, param['color_space'], param['channel'])
 
-        th.transform(param['direct'], thresh=param['thresh'])
+        th.transform(param['direction'], thresh=param['thresh'])
         if binary is None:
             binary = th.binary
         else:
@@ -116,10 +116,10 @@ if __name__ == "__main__":
 
         # Visualize the result in each step
         title1 = param['color_space'].upper() + '-' + str(param['channel'])
-        if param['direct'] is None:
+        if param['direction'] is None:
             title2 = 'color thresh ' + str(param['thresh'])
         else:
-            title2 = param['direct'] + ' gradient thresh ' + str(param['thresh'])
+            title2 = param['direction'] + ' gradient thresh ' + str(param['thresh'])
 
         two_plots(th.img, th.binary, titles=(title1, title2, ''))
 

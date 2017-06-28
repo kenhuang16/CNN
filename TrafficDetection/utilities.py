@@ -1,17 +1,9 @@
 """
-- function change_colorspace()
-
-Convert the color space of an image
-
-- function non_maxima_suppression()
-
-Apply the non-maxima suppresion to boxes.
-
-- function draw_windows()
-
-Draw rectangular windows in an image.
-
-- function two_plots()
+Functions:
+- change_colorspace()
+- non_maxima_suppression()
+- draw_windows()
+- two_plots()
 
 Plot the original and processed image together.
 
@@ -26,7 +18,7 @@ import matplotlib.pyplot as plt
 def change_colorspace(img, color_space):
     """Convert the color space of an image
 
-    The readin image is assumed to have RGB color space.
+    The read-in image is assumed to have RGB color space.
 
     :param img: numpy.ndarray
         Original image.
@@ -81,19 +73,11 @@ def non_maxima_suppression(boxes, scores, threshold=0.5):
     assert len(boxes) == len(scores)
 
     # reformat the coordinates of the bounding boxes
-    x1 = []
-    y1 = []
-    x2 = []
-    y2 = []
-    for box in boxes:
-        x1.append(box[0][0])
-        y1.append(box[0][1])
-        x2.append(box[1][0])
-        y2.append(box[1][1])
-    x1 = np.array(x1)
-    x2 = np.array(x2)
-    y1 = np.array(y1)
-    y2 = np.array(y2)
+    boxes_array = np.asarray(boxes)
+    x1 = np.array(boxes_array[:, 0, 0])
+    x2 = np.array(boxes_array[:, 1, 0])
+    y1 = np.array(boxes_array[:, 0, 1])
+    y2 = np.array(boxes_array[:, 1, 1])
 
     # compute the area of all bounding boxes
     area = (x2 - x1 + 1)*(y2 - y1 + 1)
@@ -111,24 +95,18 @@ def non_maxima_suppression(boxes, scores, threshold=0.5):
         # highest score will be removed together with the box having the
         # highest score from sorted_index.
 
-        # ------
-        # np.maximum(a, b), a is a number, b is a list:
-        # Any element in b will be replaced by a if it is less than a.
-        # ------
-
+        # compute the width and height of the overlap area
         xx1 = np.maximum(x1[i], x1[sorted_index[:-1]])
         yy1 = np.maximum(y1[i], y1[sorted_index[:-1]])
         xx2 = np.minimum(x2[i], x2[sorted_index[:-1]])
         yy2 = np.minimum(y2[i], y2[sorted_index[:-1]])
-
-        # compute the width and height of the bounding box
         w = np.maximum(0, xx2 - xx1 + 1)
         h = np.maximum(0, yy2 - yy1 + 1)
 
-        # compute the ratio of overlap
-        overlap = (w * h) / area[sorted_index[:-1]]
+        # compute the ratio of overlap (the denominator is the smaller area)
+        overlap = w*h / np.minimum(area[i], area[sorted_index[:-1]])
 
-        # delete all indexes from the index list that have
+        # delete all indices from the index list that have
         sorted_index = np.delete(
             sorted_index, np.concatenate([[len(sorted_index) - 1],
                                           np.where(overlap > threshold)[0]]))
@@ -136,125 +114,85 @@ def non_maxima_suppression(boxes, scores, threshold=0.5):
     return pick
 
 
-def sliding_window(img, window_size=(64, 64), step_size=(16, 16), scale=(1.0, 1.0)):
+def search_cars(img, classifier, scale_ratios=(1.0,), confidence_thresh=0.0,
+                overlap_thresh=0.5, step_size=(1.0, 1.0),
+                region=((0.0, 0.0), (1.0, 1.0))):
     """Search cars in an image
 
     :param img: numpy.ndarray
-        Image array.
-    :param window_size: 1x2 tuple, int
-        Size of the sliding window.
-    :param step_size: 1x2 tuple, int
-        Size of the sliding step.
-    :param scale: 1x2 tuple, float
-        Scale of the original image
+        Original image.
+    :param classifier: CarClassifier object
+        Classifier.
+    :param scale_ratios: float
+        Scales of the original image.
+    :param confidence_thresh: float
+        Threshold of the classification score.
+    :param overlap_threshold: float, between 0 and 1
+        Overlap threshold when applying non-maxima-suppression.
+    :param step_size: 1x2 tuple, float
+        Size of the sliding step in the unit of the image shape.
+    :param region: tuple of ((x0, y0), (x1, y1))
+        Search region of the image in fraction.
 
-    :return windows: list
-        A list of window images with the size of "window_size"
+    :return car_boxes: list of ((x0, y0), (x1, y1))
+        Diagonal coordinates of the predicted boxes.
     """
-    new_x_size = np.int(img.shape[1]*scale[1])
-    new_y_size = np.int(img.shape[0]*scale[0])
-    img_resized = cv2.resize(img, (new_x_size, new_y_size))
+    x0 = int(region[0][0]*img.shape[1])
+    x1 = int(region[1][0]*img.shape[1])
+    y0 = int(region[0][1]*img.shape[0])
+    y1 = int(region[1][1]*img.shape[0])
+    search_region = img[y0:y1, x0:x1, :]
 
-    # plt.imshow(img_resized)
-    # plt.show()
+    # Applying sliding window search with different scale ratios
+    windows_confidences = []
+    windows_coordinates = []
+    for ratio in scale_ratios:
+        scores, windows = \
+            classifier.sliding_window_predict(
+                search_region, step_size=step_size, binary=False, scale=ratio)
 
-    windows = []
-    y0_window = 0
-    while (y0_window + window_size[0]) <= img_resized.shape[0]:
-        x0_window = 0
-        while (x0_window + window_size[0]) <= img_resized.shape[1]:
+        windows_confidences.extend(scores)
+        for window in windows:
+            point1 = (window[0][0] + x0, window[0][1] + y0)
+            point2 = (window[1][0] + x0, window[1][1] + y0)
+            windows_coordinates.append((point1, point2))
 
-            windows.append(img_resized[y0_window:(y0_window + window_size[0]),
-                                       x0_window:(x0_window + window_size[1])])
+    # pick windows with confidence higher than threshold
+    windows_coordinates_threshed = []
+    windows_confidences_threshed = []
+    for window, confidence in zip(windows_coordinates, windows_confidences):
+        if confidence > confidence_thresh:
+            windows_coordinates_threshed.append(window)
+            windows_confidences_threshed.append(confidence)
 
-            x0_window += step_size[1]
+    # Apply the 'non maxima suppression' to filter the rest windows
+    car_boxes = non_maxima_suppression(windows_coordinates_threshed,
+                                       windows_confidences_threshed,
+                                       overlap_thresh)
 
-        y0_window += step_size[0]
-
-    return windows
+    return car_boxes
 
 
-def draw_windows(img, windows, color=(0, 0, 255), thickness=4):
-    """Draw rectangular windows in an image
+def draw_boxes(img, boxes, color=(0, 0, 255), thickness=4):
+    """Draw rectangular boxes in an image
 
     :param img: numpy.ndarray
         Original image.
-    :param windows: list of ((x0, y0), (x1, y1))
-        Diagonal coordinates of the windows.
+    :param boxes: list of ((x0, y0), (x1, y1))
+        Diagonal coordinates of the boxes.
     :param color: tuple
         RGB color tuple.
     :param thickness: int
         Line thickness.
 
     :return new_img: numpy.ndarray
-        New image with windows imprinted
+        New image with boxes imprinted
     """
     new_img = np.copy(img)
-    for window in windows:
-        cv2.rectangle(new_img, window[0], window[1], color, thickness)
+    for box in boxes:
+        cv2.rectangle(new_img, box[0], box[1], color, thickness)
 
     return new_img
-
-
-    # Create a black background image
-    # heatmap = np.zeros(img.shape[0:2])
-    #
-    # for window, confidence in zip(windows_coordinates, windows_confidences):
-    #     if confidence > 0.5:
-    #         heatmap[window[0][1]:window[1][1], window[0][0]:window[1][0]] += confidence
-
-    # Labeling heatmap
-    # labels = label(heatmap)
-    #
-    # self._visualize_search_result(img, windows_coordinates, heatmap, labels)
-
-    # heatmap = []
-    # for car_number in range(1, labels[1] + 1):
-    #     # Find pixels with each car_number label value
-    #     nonzero = (labels[0] == car_number).nonzero()
-    #     # Identify x and y values of those pixels
-    #     nonzeroy = np.array(nonzero[0])
-    #     nonzerox = np.array(nonzero[1])
-    #
-    #     x_span = np.max(nonzerox) - np.min(nonzerox)
-    #     y_span = np.max(nonzeroy) - np.min(nonzeroy)
-    #     if x_span >= self._car_minimum_size and y_span >= self._car_minimum_size:
-    #         heatmap.append(((np.min(nonzerox), np.min(nonzeroy)),
-    #                        (np.max(nonzerox), np.max(nonzeroy))))
-
-    # @staticmethod
-    # def _visualize_search_result(img, windows, heatmap, labels):
-    #     """Visualize windows and the corresponding heat maps
-    #
-    #     Parameters
-    #     ----------
-    #     img: numpy.ndarray
-    #         Image array.
-    #     windows: list of ((x0, y0), (x1, y1))
-    #         Diagonal coordinates of the windows.
-    #     heatmap: numpy.ndarray
-    #         Heatmap Image array.
-    #     labels: numpy.ndarray
-    #         Result from skimage.label().
-    #
-    #     For debug only.
-    #     """
-    #     img_with_windows = np.copy(img)
-    #
-    #     for window in windows:
-    #         cv2.rectangle(img_with_windows, window[0], window[1], (0, 0, 255), 6)
-    #
-    #     fig, ax = plt.subplots(3, 1, figsize=(4.5, 12))
-    #
-    #     ax[0].imshow(img_with_windows)
-    #     ax[0].set_title("raw search result", fontsize=18)
-    #     ax[1].imshow(heatmap, cmap='hot')
-    #     ax[1].set_title("heatmap", fontsize=18)
-    #     ax[2].imshow(labels[0], cmap='gray')
-    #     ax[2].set_title("labeled", fontsize=18)
-    #
-    #     plt.tight_layout()
-    #     plt.show()
 
 
 def two_plots(img1, img2, titles=('', '', ''), output=''):

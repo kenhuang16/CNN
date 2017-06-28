@@ -3,19 +3,12 @@
 """
 CarClassifier class
 """
-
-import glob
-import pickle
-import time
-
 import numpy as np
-import matplotlib.pyplot as plt
 import cv2
 
 from sklearn.svm import LinearSVC
-# from sklearn.tree import DecisionTreeClassifier
-# from sklearn.ensemble import RandomForestClassifier
-
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -139,26 +132,23 @@ class CarClassifier(object):
         else:
             return self._predict(np.array([features]))
 
-    def sliding_window_predict(self, img, step_size=None, scale=(1.0, 1.0),
-                               binary=True):
+    def sliding_window_predict(self, img, step_size=(1.0, 1.0),
+                               scale=1.0, binary=True):
         """Apply sliding window to an image and predict each window
 
         :param img: numpy.ndarray
             Image array.
-        :param step_size: 1x2 tuple, int
-            Size of the sliding step.
+        :param step_size: 1x2 tuple, float
+            Size of the sliding step in the unit of the image shape.
         :param binary: Bool
             True for returning the binary result;
             False for returning the confidence score of the prediction.
-        :param scale: 1x2 tuple, float
+        :param scale: float
             Scale of the original image.
 
         :return : numpy.array
             Class labels or confidence scores.
         """
-        if step_size is None:
-            step_size = self.shape
-
         features, windows = self.extractor.sliding_window_extract(
             img, window_size=self.shape, step_size=step_size, scale=scale)
 
@@ -188,80 +178,3 @@ class CarClassifier(object):
             Class labels.
         """
         return self.classifier.predict(self.scaler.transform(X)).astype(np.int8)
-
-
-if __name__ == "__main__":
-    case = 3
-
-    # Train a classifier
-    if case == 1:
-        car_files = []
-        car_files.extend(glob.glob("data/vehicles/KITTI_extracted/*.png"))
-        car_files.extend(glob.glob("data/vehicles/GTI_Far/*.png"))
-        car_files.extend(glob.glob("data/vehicles/GTI_Left/*.png"))
-        car_files.extend(glob.glob("data/vehicles/GTI_Right/*.png"))
-        car_files.extend(glob.glob("data/vehicles/GTI_MiddleClose/*.png"))
-
-        noncar_files = []
-        noncar_files.extend(glob.glob("data/non-vehicles/Extras/*.png"))
-        noncar_files.extend(glob.glob("data/non-vehicles/GTI/*.png"))
-
-        cls = LinearSVC(C=0.0001)
-        # cls = DecisionTreeClassifier(max_depth=10)
-        # cls = RandomForestClassifier(n_estimators=20, max_depth=6)
-
-        ext = HogExtractor(colorspace='YCrCb', cell_per_block=(2, 2))
-        # ext = LbpExtractor()
-
-        # The critical hyper-parameter here is color_space='YCrCb'
-        # A high accuracy (> 99%) is important here to reduce the
-        # false-positive
-        car_cls = CarClassifier(classifier=cls, extractor=ext)
-
-        car_cls.train(car_files, noncar_files, test_size=0.2, max_images=10000)
-
-        output = 'car_classifier.pkl'
-        with open(output, "wb") as fp:
-            pickle.dump(car_cls, fp)
-            print("Car classifier was saved in {}".format(output))
-
-    # Test the classifier on a single image
-    elif case == 2:
-        with open('car_classifier.pkl', "rb") as fp:
-            car_classifier = pickle.load(fp)
-
-        car_image = "data/vehicles/KITTI_extracted/1.png"
-        car_img = cv2.imread(car_image)
-
-        plt.imshow(car_img)
-        plt.show()
-
-        predictions = car_classifier.predict(car_img)
-        print(predictions)
-
-        noncar_image = "data/non-vehicles/GTI/image1.png"
-        noncar_img = cv2.imread(noncar_image)
-
-        plt.imshow(noncar_img)
-        plt.show()
-
-        predictions = car_classifier.predict(noncar_img)
-        print(predictions)
-
-    # Test sliding window classifier
-    elif case == 3:
-        with open('car_classifier.pkl', "rb") as fp:
-            car_classifier = pickle.load(fp)
-
-        test_image = 'test_images/test_image_white_car.png'
-        test_img = cv2.imread(test_image)
-
-        predictions, windows = car_classifier.sliding_window_predict(
-            test_img, step_size=(8, 8), binary=False, scale=(0.6, 0.6))
-
-        for window, prediction in zip(windows, predictions):
-            if prediction > 0.5:
-                cv2.rectangle(test_img, window[0], window[1], (255, 0, 0), 6)
-
-        cv2.imshow('img', test_img)
-        cv2.waitKey(0)

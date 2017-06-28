@@ -6,19 +6,16 @@ import pickle
 import glob
 import numpy as np
 import cv2
-from scipy import misc
 
 from moviepy.editor import VideoFileClip
 
 from traffic import TrafficVideo
 from calibration import calibrate_camera, undistort_image
 from image_transform import calibrate_perspective_trans, perspective_trans
-import matplotlib.pyplot as plt
 
 from car_classifier import CarClassifier
 from parameters import project_video, test_video, thresh_params
 from utilities import two_plots
-
 
 
 my_video = project_video
@@ -71,16 +68,16 @@ f1 = TrafficVideo(input, camera_cali_file=camera_cali_file,
                   perspective_trans_file=perspective_trans_file,
                   thresh_params=thresh_params,
                   car_classifier="car_classifier.pkl",
-                  search_laneline=True,
+                  search_laneline=False,
                   search_car=True)
 
-for i in np.arange(900, 2500, 1):
-    print("Frame {}".format(i))
-    image = f1.process_video_image(iframe=i)
-    #misc.imsave('test_images/test_img.png', test_img)
-    fig, ax = plt.subplots()
-    ax.imshow(image)
-    plt.tight_layout()
-    plt.show()
+# for i in np.arange(100, 2500, 100):
+#     print("Frame {}".format(i))
+#     image = f1.get_video_image(iframe=i)
+#     misc.imsave('test_images/test_image{:02d}.png'.format(int(i/100)), image)
+#     fig, ax = plt.subplots()
+#     ax.imshow(image)
+#     plt.tight_layout()
+#     plt.show()
 
 f1.process(output)

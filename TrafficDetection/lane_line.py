@@ -13,7 +13,6 @@ TwinLine:
 
 """
 from abc import abstractmethod
-from time import time
 
 import numpy as np
 import matplotlib.pyplot as plt
