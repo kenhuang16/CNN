@@ -17,7 +17,7 @@ For details, please check the [BehaviorCloning](./BehaviorCloning) folder.
 
 In this project, the lane lines and vehicles on the road in a video will be identified simutaneously.
 
-For details, please check the [LaneLineFinding&VehicleDetection](./LaneLineFinding&VehicleDetection) folder.
+For details, please check the [TrafficDetection](./TrafficDetection) folder.
 
 ## Rover
 
