@@ -1,4 +1,3 @@
-#!/usr/bin/python
 """
 Apply gradient and/or color threshold to an image.
 """
@@ -7,9 +6,6 @@ import cv2
 import matplotlib.pyplot as plt
 
 from utilities import change_colorspace, two_plots
-
-
-DEBUG = False
 
 
 class Threshold(object):
@@ -93,7 +89,7 @@ class Threshold(object):
 
 
 if __name__ == "__main__":
-    test_image = "./output_images/threshold_original.jpg"
+    test_image = "./test_images/test_image01.png"
 
     thresh_params = [
         {'color_space': 'hls', 'channel': 2, 'direction': 'x', 'thresh': (20, 100)},
@@ -124,4 +120,5 @@ if __name__ == "__main__":
         two_plots(th.img, th.binary, titles=(title1, title2, ''))
 
     plt.imshow(binary, cmap='gray')
+    plt.title("Combination of different threshold", fontsize=18)
     plt.show()
