@@ -8,7 +8,7 @@ from moviepy.editor import VideoFileClip
 
 from lane_line import TwinLine
 from threshold import Threshold
-from utilities import draw_boxes, search_cars
+from utilities import draw_boxes, search_cars, two_plots
 
 
 INF = 1.0e21
@@ -20,18 +20,22 @@ DEBUG = False
 
 class TrafficVideo(object):
     """TrafficVideo class"""
-    def __init__(self, input, camera_cali_file=None, perspective_trans_file=None,
-                 thresh_params=None, max_poor_fit_time=0.5, car_classifier=None,
-                 search_car=True, search_laneline=True):
+    def __init__(self, video_clip, camera_cali_file=None,
+                 perspective_transform_params=None,
+                 thresh_params=None, search_laneline=True, max_poor_fit_time=0.5,
+                 search_car=True, car_classifier=None):
         """Initialization.
 
-        :param input: string
+        :param video_clip: string
             File name of the input video.
         :param camera_cali_file: string
             Name of the pickle file storing the camera calibration
-        :param perspective_trans_file: string
-            Name of the pickle file storing the perspective transform
-            matrices.
+        :param perspective_transform_params: tuple
+            Source and destination points of perspective transform
+            For example, (frame, src, dst) with
+                frame the recommended frame index for perspective transform
+                src = np.float32([[0, 720], [570, 450], [708, 450], [1280, 720]])
+                dst = np.float32([[0, 720], [0, 0], [1280, 0], [1280, 720]])
         :param thresh_params: list of dictionary
             Parameters for the gradient and color threshhold.
         :param max_poor_fit_time: float
@@ -44,24 +48,27 @@ class TrafficVideo(object):
         :param search_laneline: Boolean
             True for search lanelines in the video/image.
         """
-        self.input = input
-        self.clip = VideoFileClip(input)
-        self.iframe = 0
-        self._shape = None  # image (in the video) shape
+        self.clip = VideoFileClip(video_clip)
+        self.shape = self.get_video_image(0).shape
+        self.frame = 0  # the current frame index
 
-        self.lines = None
-
+        # Load camera calibration information
         with open(camera_cali_file, "rb") as fp:
             camera_cali = pickle.load(fp)
-        self.obj_points = camera_cali["obj_points"]
-        self.img_points = camera_cali["img_points"]
-        self.camera_matrix = None
-        self.dist_coeffs = None
 
-        with open(perspective_trans_file, "rb") as fp:
-            perspective = pickle.load(fp)
-        self.perspective_matrix = perspective["matrix"]
-        self.inv_perspective_matrix = perspective["inv_matrix"]
+        # Get required parameters for image undistortion
+        _, self.camera_matrix, self.dist_coeffs, _, _ = cv2.calibrateCamera(
+            camera_cali["obj_points"], camera_cali["img_points"],
+            self.shape[0:2], None, None)
+
+        # Get (inverse) perspective transform matrices
+        self.ppt_trans_frame = perspective_transform_params[0]
+        self.ppt_trans_src = perspective_transform_params[1]
+        self.ppt_trans_dst = perspective_transform_params[2]
+        self.ppt_trans_matrix = cv2.getPerspectiveTransform(
+            self.ppt_trans_src, self.ppt_trans_dst)
+        self.inv_ppt_trans_matrix = cv2.getPerspectiveTransform(
+            self.ppt_trans_dst, self.ppt_trans_src)
 
         self.thresh_params = thresh_params
 
@@ -71,6 +78,8 @@ class TrafficVideo(object):
             self._is_search_laneline = True
         else:
             self._is_search_laneline = False
+
+        self.lines = None
 
         if car_classifier is not None and search_car is True:
             try:
@@ -83,21 +92,31 @@ class TrafficVideo(object):
         else:
             self._is_search_car = False
 
-    @property
-    def shape(self):
-        """The shape property"""
-        return self._shape
+    def show_perspective_transform(self, frame=None):
+        """Visualize the perspective transformation for one frame
 
-    @shape.setter
-    def shape(self, value):
-        """"""
-        if self._shape != value[0:2]:
-            self._shape = value[0:2]
+        @param frame: None/int
+            The No. of frame. The default value is given by
+            self.ppt_trans_frame.
+        """
+        if frame is None:
+            frame = self.ppt_trans_frame
 
-            # Regenerate the camera calibration matrix
-            _, self.camera_matrix, self.dist_coeffs, _, _ = \
-                cv2.calibrateCamera(self.obj_points, self.img_points,
-                                    self.shape, None, None)
+        img = self.get_video_image(frame)
+
+        img = cv2.undistort(img, self.camera_matrix, self.dist_coeffs,
+                            None, self.camera_matrix)
+
+        warped = cv2.warpPerspective(
+            img, self.ppt_trans_matrix, img.shape[:2][::-1])
+
+        # Visualize the transform
+        cv2.polylines(img, np.int32([self.ppt_trans_src]),
+                      1, (255, 255, 0), thickness=4)
+        cv2.polylines(warped, np.int32([self.ppt_trans_dst]),
+                      1, (255, 255, 0), thickness=4)
+        two_plots(img, warped,
+                  ('original', 'warped', 'check perspective transform'))
 
     def process(self, output):
         """Process the input video and dump it into the output.
@@ -108,29 +127,28 @@ class TrafficVideo(object):
         processed_clip = self.clip.fl_image(self._process_image)
         processed_clip.to_videofile(output, audio=False)
 
-    def process_video_image(self, iframe=1):
+    def process_video_image(self, frame=0):
         """Process a frame in a video
 
-        :param iframe: int
+        :param frame: int
             Frame index.
 
         :return: processed image.
         """
-        self.iframe = iframe
-        img = self.clip.get_frame(int(iframe)/self.clip.fps)
+        self.frame = frame
+        img = self.clip.get_frame(int(frame)/self.clip.fps)
 
         return self._process_image(img)
 
-    def get_video_image(self, iframe=1):
+    def get_video_image(self, frame=0):
         """get a frame in a video
 
-        :param iframe: int
+        :param frame: int
             Frame index.
 
         :return: frame image.
         """
-        self.iframe = iframe
-        img = self.clip.get_frame(int(iframe)/self.clip.fps)
+        img = self.clip.get_frame(int(frame)/self.clip.fps)
 
         return img
 
@@ -143,8 +161,6 @@ class TrafficVideo(object):
         :return: processed: numpy.ndarray
             Processed image.
         """
-        self.shape = img.shape
-
         undistorted = cv2.undistort(
             img, self.camera_matrix, self.dist_coeffs, None, self.camera_matrix)
 
@@ -179,7 +195,7 @@ class TrafficVideo(object):
 
         # Transform to bird-eye view
         bird_eye = cv2.warpPerspective(
-            threshed, self.perspective_matrix, threshed.shape[:2][::-1])
+            threshed, self.ppt_trans_matrix, threshed.shape[:2][::-1])
 
         # Search line in the warped image
         if self.lines is None:
@@ -224,7 +240,7 @@ class TrafficVideo(object):
 
         # Applying inverse perspective transform
         inv_warp = cv2.warpPerspective(
-            colored_warp, self.inv_perspective_matrix, colored_warp.shape[:2][::-1])
+            colored_warp, self.inv_ppt_trans_matrix, colored_warp.shape[:2][::-1])
 
         # Draw lines in the original image
         img_with_lanelines = cv2.addWeighted(img, 1.0, inv_warp, 0.5, 0.0)
@@ -306,7 +322,7 @@ class TrafficVideo(object):
         y_text_space = 45
 
         # Frame count
-        text_string = "Frame: {}".format(self.iframe)
+        text_string = "Frame: {}".format(self.frame)
         cv2.putText(new_img, text_string, (x_text, y_text),
                     font_name, font_scale, (255, 50, 200), font_thickness)
 

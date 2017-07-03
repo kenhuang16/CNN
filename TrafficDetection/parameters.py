@@ -1,9 +1,9 @@
-#!/usr/bin/python
 """
-Define paramters
+Define parameters
 """
 import numpy as np
 import glob
+
 
 car_files = []
 car_files.extend(glob.glob("data/vehicles/KITTI_extracted/*.png"))
@@ -22,7 +22,7 @@ h_img = 720
 test_video = {
     'input': './videos/test_video.mp4',
     'output': './videos/test_video_processed.mp4',
-    'i_frame': 500,
+    'frame': 500,
     'src': np.float32([[0, h_img], [570, 450], [708, 450], [w_img, h_img]]),
     'dst': np.float32([[0, h_img], [0, 0], [w_img, 0], [w_img, h_img]])
 }
@@ -30,7 +30,7 @@ test_video = {
 project_video = {
     'input': './videos/project_video.mp4',
     'output': './videos/project_video_processed.mp4',
-    'i_frame': 500,
+    'frame': 500,
     'src': np.float32([[0, h_img], [570, 450], [708, 450], [w_img, h_img]]),
     'dst': np.float32([[0, h_img], [0, 0], [w_img, 0], [w_img, h_img]])
 }
@@ -38,7 +38,7 @@ project_video = {
 challenge_video = {
     'input': './videos/challenge_video.mp4',
     'output': './videos/challenge_video_processed.mp4',
-    'i_frame': 354,
+    'frame': 354,
     'src': np.float32([[270, 720], [585, 500], [750, 500], [1050, 720]]),
     'dst': np.float32([[270, 720], [270, 0], [1050, 0], [1050, 720]])
 }
@@ -46,7 +46,7 @@ challenge_video = {
 harder_challenge_video = {
     'input': './videos/harder_challenge_video.mp4',
     'output': './videos/harder_challenge_video_processed.mp4',
-    'i_frame': 354,
+    'frame': 354,
     'src': np.float32([[240, 700], [415, 580], [840, 580], [985, 700]]),
     'dst': np.float32([[240, 700], [240, 300], [985, 300], [985, 700]])
 }

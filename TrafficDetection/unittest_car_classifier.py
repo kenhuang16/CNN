@@ -2,7 +2,6 @@
 test class CarClassifier()
 """
 import os
-import glob
 import pickle
 import random
 import cv2
@@ -15,18 +14,8 @@ from feature_extraction import HogExtractor, LbpExtractor
 
 from car_classifier import CarClassifier
 from utilities import search_cars, draw_boxes
+from parameters import car_files, noncar_files
 
-
-car_files = []
-car_files.extend(glob.glob("data/vehicles/KITTI_extracted/*.png"))
-car_files.extend(glob.glob("data/vehicles/GTI_Far/*.png"))
-car_files.extend(glob.glob("data/vehicles/GTI_Left/*.png"))
-car_files.extend(glob.glob("data/vehicles/GTI_Right/*.png"))
-car_files.extend(glob.glob("data/vehicles/GTI_MiddleClose/*.png"))
-
-noncar_files = []
-noncar_files.extend(glob.glob("data/non-vehicles/Extras/*.png"))
-noncar_files.extend(glob.glob("data/non-vehicles/GTI/*.png"))
 
 output = 'car_classifier.pkl'
 if not os.path.isfile(output):

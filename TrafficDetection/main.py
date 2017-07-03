@@ -1,83 +1,36 @@
-#!/usr/bin/python
 """
-"""
-import os
-import pickle
-import glob
-import numpy as np
-import cv2
+This is a combination of the advanced lane line finding and
+the vehicle detection projects.
 
-from moviepy.editor import VideoFileClip
+Run main.py to process the input video
+"""
+import matplotlib.pyplot as plt
 
 from traffic import TrafficVideo
-from calibration import calibrate_camera, undistort_image
-from image_transform import calibrate_perspective_trans, perspective_trans
-
-from car_classifier import CarClassifier
 from parameters import project_video, test_video, thresh_params
-from utilities import two_plots
 
 
-my_video = project_video
-# my_video = test_video
+# my_video = project_video
+video = test_video
 
-input = my_video['input']
-output = my_video['output']
-i_frame = my_video['i_frame']
-source_points = my_video['src']
-distortion_points = my_video['dst']
-
-# -----------------------------------------------------------------------------
-# Camera calibration
-camera_cali_file = "camera_cali.pkl"
-if not os.path.isfile(camera_cali_file):
-    chess_board_images = glob.glob('camera_cal/calibration*.jpg')
-    pattern_size = (9, 6)
-    calibrate_camera(
-        chess_board_images, pattern_size=pattern_size, output=camera_cali_file)
-
-# Apply un-distortion on a test image
-clip = VideoFileClip(input)
-test_img = clip.get_frame(my_video['i_frame'] / 25.0)
-# misc.imsave('test_images/test_img_perspective_trans.png', test_img)
-with open(camera_cali_file, "rb") as fp:
-    camera_cali = pickle.load(fp)
-test_img_undistorted = undistort_image(
-    test_img, camera_cali["obj_points"], camera_cali["img_points"])
-
-# -----------------------------------------------------------------------------
-# Perspective transformation
-perspective_trans_file = "perspective_trans.pkl"
-calibrate_perspective_trans(source_points, distortion_points,
-                            output=perspective_trans_file)
-
-# Apply perspective transformation on a test image
-warped = perspective_trans(test_img_undistorted, perspective_trans_file)
-
-# Visualize the transformation
-cv2.polylines(test_img_undistorted, np.int32([source_points]),
-              1, (255, 255, 0), thickness=4)
-cv2.polylines(warped, np.int32([distortion_points]),
-              1, (255, 255, 0), thickness=4)
-two_plots(test_img_undistorted, warped,
-          ('original', 'warped', 'perspective transformation'), output='')
-
-# -----------------------------------------------------------------------------
 # Process the video
-f1 = TrafficVideo(input, camera_cali_file=camera_cali_file,
-                  perspective_trans_file=perspective_trans_file,
+ppt_trans_params = (video['frame'], video['src'], video['dst'])
+f1 = TrafficVideo(video['input'], camera_cali_file='camera_cali.pkl',
+                  perspective_transform_params=ppt_trans_params,
                   thresh_params=thresh_params,
                   car_classifier="car_classifier.pkl",
                   search_laneline=False,
                   search_car=True)
 
-# for i in np.arange(100, 2500, 100):
+f1.show_perspective_transform()
+
+f1.process(video['output'])
+
+# for i in range(100, 2500, 100):
 #     print("Frame {}".format(i))
-#     image = f1.get_video_image(iframe=i)
-#     misc.imsave('test_images/test_image{:02d}.png'.format(int(i/100)), image)
+#     image = f1.get_video_image(i)
+#     plt.imsave('test_images/test_image{:02d}.png'.format(int(i/100)), image)
 #     fig, ax = plt.subplots()
 #     ax.imshow(image)
 #     plt.tight_layout()
 #     plt.show()
-
-f1.process(output)

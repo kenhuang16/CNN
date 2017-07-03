@@ -4,56 +4,49 @@
 
 Jun Zhu
 
+This is a combination of the advanced lane line finding and the vehicle detection projects.
 ![alt text](highlight-1.png)
 
 
-## Camera Calibration
+## Camera Calibration and image undistortion 
 
 The camera distortion was calibrated by the [chessboard images](./camera_cal/). The chessboard was assumed to be fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.
 
 Then the output `obj_points` and `img_points` were used to calculate the camera calibration and distortion coefficients using the `cv2.calibrateCamera()`.  The result was saved in the file "./camera_cali.pkl". Undistortion of the test image "camera_cal/calibration1.jpg" using `cv2.undistort()` is shown below: 
 
-![image](./output_images/chess_board_undistorted.jpg "Chessboard undistortion")
 
-## LaneLine Detection
+## Lane line finding
 
-Image undistortion -> threshold -> perspective transform ->
+**pipeline**: perspective transform -> threshold -> lane line search -> curve fit -> inverse perspective transform
 
-### 1. Undistortion
+### Perspective transform.
 
-![image](./output_images/image_undistorted.jpg "Sample image undistortion")
-
-### 2. Threshold
-A combination of color and gradient thresholds was used to generate a binary image. The processing of a screenshot with shadown on the road is shown in the following:
-
-![image](./output_images/threshold_original.jpg "Original image for threshold")
-
-The gradient threshold in a grayscale image sometimes introduce many outliers. Here the gradient threshold was applied along the x direction in the HLS-S channel.
-
-![image](./output_images/gradient_thresh_s_x.jpg "gradient threshold")
-
-The most efficient way of finding the yellow line is to apply the color threshold in the HLS-S channel.
-
-![image](./output_images/color_thresh_s.jpg "color threshold in HLS-S channel")
-
-It is obvious that the white line cannot be found out by the above two threshold methods. In order to get the while line in certain images, the color threshold was applied in the grayscale image.
-
-![image](./output_images/color_thresh_gray.jpg "color threshold in grayscale")
-
-Finally, the above binary images were combined to get the final result.
-
-![image](./output_images/combined_threshold.jpg "combined_thresh")
-
-### 3. Perspective transform.
-
-![image](./output_images/perspective_transform.png "Perspective Transform")
+Perspective transform can only be finely tuned by eyes.
 
 
-### 4. Lane line search and fit
+### Threshold
+```
+python threshold.py
+```
+Both color and gradient thresholds have been implemented.
+
+### Lane line search
 
 
-## Vehicle Detection
 
+### Curve fit
+
+
+
+### Inverse perspective transform
+
+Transform the lane lines in the bird view image back to the original image.
+
+## Vehicle detection
+
+**pipeline**: train a classifier -> feature extraction (sliding window) -> vehicle classification
+
+### Vehicle and non-vehicle data
 
 [vehicles](https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/vehicles.zip)
 
@@ -61,20 +54,23 @@ Finally, the above binary images were combined to get the final result.
 
 The sizes of the images in the data set are all **64 x 64**. These data come from [GTI vehicle image database](http://www.gti.ssr.upm.es/data/Vehicle_database.html) and [KITTI Vision Benchmark Suite](http://www.cvlibs.net/datasets/kitti/).
 
-### 1. Histogram of Oriented Gradients (HOG)
+### Feature extraction
 
-![image](./output_images/hog_features_and_images.png "HOG")
+```
+python unittest_feature_extraction.py
+```
 
-### 2. Local Binary Pattern (LBP) 
+ Two algorithms have been implemented in this project: Histogram of Oriented Gradients (HOG) and Local Binary Pattern (LBP) 
 
-![image](./output_images/lbp_features_and_images.png "LBP")
+**sliding window feature extraction**: The size of the original image will be scaled, but the window size is always **64x64**. In order to detect vehicles in an image, the sliding window method should be applied multiple times using different scales.
 
-### 3. Sliding Window Search
+### Vehicle classification
 
-The size of the original image will be scaled, but the window sizes are always **64x64**. In order to detect vehicles in a image, the sliding window method should be applied multiple times using different scales.
+```
+# delete the file "car_classifier.pkl" to train a new classifier
+python unittest_car_classifier.py
+```
 
-![image](./output_images/sliding_window_images.png "sliding window images")
-![image](./output_images/sliding_window_features.png "sliding window features")
 
 ## References
 
