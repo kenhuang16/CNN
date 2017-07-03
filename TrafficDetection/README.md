@@ -17,28 +17,28 @@ Then the output `obj_points` and `img_points` were used to calculate the camera 
 
 ## Lane line finding
 
-**pipeline**: perspective transform -> threshold -> lane line search -> curve fit -> inverse perspective transform
+**pipeline**: perspective transformation -> threshold -> lane line search -> curve fit -> inverse perspective transform
 
-### Perspective transform.
+### Perspective transformation.
 
-Perspective transform can only be finely tuned by eyes.
+Perspective transformation can only be finely tuned by eyes. A plot will pop out at the beginning of the video processing to let you check the perspective transformation result.
 
 
-### Threshold
+#### Threshold
 ```
 python threshold.py
 ```
 Both color and gradient thresholds have been implemented.
 
-### Lane line search
+#### Lane line search
 
 
 
-### Curve fit
+#### Curve fit
 
 
 
-### Inverse perspective transform
+#### Inverse perspective transformation
 
 Transform the lane lines in the bird view image back to the original image.
 
@@ -46,7 +46,7 @@ Transform the lane lines in the bird view image back to the original image.
 
 **pipeline**: train a classifier -> feature extraction (sliding window) -> vehicle classification
 
-### Vehicle and non-vehicle data
+#### Vehicle and non-vehicle data
 
 [vehicles](https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/vehicles.zip)
 
@@ -54,7 +54,7 @@ Transform the lane lines in the bird view image back to the original image.
 
 The sizes of the images in the data set are all **64 x 64**. These data come from [GTI vehicle image database](http://www.gti.ssr.upm.es/data/Vehicle_database.html) and [KITTI Vision Benchmark Suite](http://www.cvlibs.net/datasets/kitti/).
 
-### Feature extraction
+#### Feature extraction
 
 ```
 python unittest_feature_extraction.py
@@ -64,7 +64,7 @@ python unittest_feature_extraction.py
 
 **sliding window feature extraction**: The size of the original image will be scaled, but the window size is always **64x64**. In order to detect vehicles in an image, the sliding window method should be applied multiple times using different scales.
 
-### Vehicle classification
+#### Vehicle classification
 
 ```
 # delete the file "car_classifier.pkl" to train a new classifier

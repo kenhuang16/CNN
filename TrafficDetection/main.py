@@ -16,7 +16,7 @@ video = test_video
 # Process the video
 ppt_trans_params = (video['frame'], video['src'], video['dst'])
 f1 = TrafficVideo(video['input'], camera_cali_file='camera_cali.pkl',
-                  perspective_transform_params=ppt_trans_params,
+                  perspective_trans_params=ppt_trans_params,
                   thresh_params=thresh_params,
                   car_classifier="car_classifier.pkl",
                   search_laneline=False,

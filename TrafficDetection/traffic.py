@@ -21,7 +21,7 @@ DEBUG = False
 class TrafficVideo(object):
     """TrafficVideo class"""
     def __init__(self, video_clip, camera_cali_file=None,
-                 perspective_transform_params=None,
+                 perspective_trans_params=None,
                  thresh_params=None, search_laneline=True, max_poor_fit_time=0.5,
                  search_car=True, car_classifier=None):
         """Initialization.
@@ -30,10 +30,10 @@ class TrafficVideo(object):
             File name of the input video.
         :param camera_cali_file: string
             Name of the pickle file storing the camera calibration
-        :param perspective_transform_params: tuple
-            Source and destination points of perspective transform
+        :param perspective_trans_params: tuple
+            Source and destination points of perspective transformation
             For example, (frame, src, dst) with
-                frame the recommended frame index for perspective transform
+                frame the recommended frame index for perspective transformation
                 src = np.float32([[0, 720], [570, 450], [708, 450], [1280, 720]])
                 dst = np.float32([[0, 720], [0, 0], [1280, 0], [1280, 720]])
         :param thresh_params: list of dictionary
@@ -61,10 +61,10 @@ class TrafficVideo(object):
             camera_cali["obj_points"], camera_cali["img_points"],
             self.shape[0:2], None, None)
 
-        # Get (inverse) perspective transform matrices
-        self.ppt_trans_frame = perspective_transform_params[0]
-        self.ppt_trans_src = perspective_transform_params[1]
-        self.ppt_trans_dst = perspective_transform_params[2]
+        # Get (inverse) perspective transformation matrices
+        self.ppt_trans_frame = perspective_trans_params[0]
+        self.ppt_trans_src = perspective_trans_params[1]
+        self.ppt_trans_dst = perspective_trans_params[2]
         self.ppt_trans_matrix = cv2.getPerspectiveTransform(
             self.ppt_trans_src, self.ppt_trans_dst)
         self.inv_ppt_trans_matrix = cv2.getPerspectiveTransform(
@@ -116,7 +116,7 @@ class TrafficVideo(object):
         cv2.polylines(warped, np.int32([self.ppt_trans_dst]),
                       1, (255, 255, 0), thickness=4)
         two_plots(img, warped,
-                  ('original', 'warped', 'check perspective transform'))
+                  ('original', 'warped', 'check perspective transformation'))
 
     def process(self, output):
         """Process the input video and dump it into the output.
@@ -238,7 +238,7 @@ class TrafficVideo(object):
             right_pts = np.array((self.lines.right.ave_x, self.lines.right.y)).T
             cv2.polylines(colored_warp, np.int32([right_pts]), 0, (255, 255, 0), thickness=30)
 
-        # Applying inverse perspective transform
+        # Applying inverse perspective transformation
         inv_warp = cv2.warpPerspective(
             colored_warp, self.inv_ppt_trans_matrix, colored_warp.shape[:2][::-1])
 
