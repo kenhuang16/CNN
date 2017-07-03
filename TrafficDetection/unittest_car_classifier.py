@@ -43,7 +43,7 @@ if not os.path.isfile(output):
     # false-positive
     car_classifier = CarClassifier(classifier=cls, extractor=ext)
     car_classifier.train(
-        car_files, noncar_files, test_size=0.2, max_images=10000)
+        car_files, noncar_files, test_size=0.2, max_images=50000)
 
     with open(output, "wb") as fp:
         pickle.dump(car_classifier, fp)
@@ -74,7 +74,7 @@ with open('car_classifier.pkl', "rb") as fp:
     car_classifier = pickle.load(fp)
 
 for i in range(10):
-    test_image = 'test_images/test_image0{}.png'.format(i+1)
+    test_image = 'test_images/test_image{:02d}.png'.format(i+1)
     test_img = cv2.imread(test_image)
 
     boxes = search_cars(test_img, car_classifier, scale_ratios=(0.5, 0.7),
