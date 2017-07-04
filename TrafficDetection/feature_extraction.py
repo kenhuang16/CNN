@@ -120,10 +120,10 @@ class HogExtractor(object):
         x_step = int(step_size[0]*window_size[0])
         y_step = int(step_size[1]*window_size[1])
         # Apply sliding window
-        while y1_window <= img_resized.shape[0]:
+        while y1_window < img_resized.shape[0]:
             x0_window = 0
             x1_window = window_size[0]
-            while x1_window <= img_resized.shape[1]:
+            while x1_window < img_resized.shape[1]:
                 # concatenate features in different channels
                 combined = []
                 for channel in hog_features:
@@ -273,10 +273,10 @@ class LbpExtractor(object):
         y0_window = 0
         y1_window = window_size[1]
         # Apply sliding window
-        while y1_window <= img_resized.shape[0]:
+        while y1_window < img_resized.shape[0]:
             x0_window = 0
             x1_window = window_size[0]
-            while x1_window <= img_resized.shape[1]:
+            while x1_window < img_resized.shape[1]:
                 window_img = img_resized[y0_window:y1_window, x0_window:x1_window]
                 window_features.append(self.extract(window_img))
                 window_coordinates.append(
