@@ -35,7 +35,7 @@ plt.show()
 
 output = 'car_classifier.pkl'
 if not os.path.isfile(output):
-    train_classifier(output, 10000)
+    train_classifier(output, 5000)
 
 with open('car_classifier.pkl', "rb") as fp:
     car_classifier = pickle.load(fp)
@@ -72,12 +72,12 @@ for i in range(10):
 
     boxes = sw_search_car(
         test_img, car_classifier,
-        scale_ratios=car_search_params['scale_ratios'],
+        step_size=car_search_params['step_size'],
+        scales=car_search_params['scales'],
+        regions=car_search_params['regions'],
         confidence_thresh=car_search_params['confidence_thresh'],
         overlap_thresh=car_search_params['overlap_thresh'],
-        heat_thresh=car_search_params['heat_thresh'],
-        step_size=car_search_params['step_size'],
-        region=car_search_params['region'])
+        heat_thresh=car_search_params['heat_thresh'])
 
     test_img = draw_box(test_img, boxes)
 

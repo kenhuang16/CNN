@@ -174,11 +174,11 @@ class TrafficVideo(object):
         if self._is_search_car is True:
             boxes = sw_search_car(
                 processed, self.car_classifier,
-                scale_ratios=self.car_search_params['scale_ratios'],
+                scales=self.car_search_params['scales'],
                 confidence_thresh=self.car_search_params['confidence_thresh'],
                 overlap_thresh=self.car_search_params['overlap_thresh'],
                 step_size=self.car_search_params['step_size'],
-                region=self.car_search_params['region'])
+                regions=self.car_search_params['regions'])
             processed = draw_box(processed, boxes)
 
         return processed

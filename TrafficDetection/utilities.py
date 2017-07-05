@@ -84,7 +84,7 @@ def read_image_data(max_count=100000):
     return np.array(imgs, dtype=np.uint8), labels
 
 
-def augment_image_data(imgs, labels, number=5000, gain=0.2, bias=20):
+def augment_image_data(imgs, labels, number=5000, gain=0.3, bias=30):
     """Augment image data
 
     @param imgs: numpy.ndarray
@@ -281,43 +281,43 @@ def box_by_heat(boxes, confidences, shape, thresh=1.0):
     return new_boxes
 
 
-def sw_search_car(img, classifier, scale_ratios=(1.0,), confidence_thresh=0.0,
-                  overlap_thresh=0.5, heat_thresh=0.5, step_size=(1.0, 1.0),
-                  region=((0.0, 0.0), (1.0, 1.0))):
+def sw_search_car(img, classifier, step_size=(1.0, 1.0),
+                  scales=(1.0,), regions=(((0.0, 0.0), (1.0, 1.0)),),
+                  confidence_thresh=0.0, overlap_thresh=0.5, heat_thresh=0.5):
     """Search cars in an image
 
     :param img: numpy.ndarray
         Original image.
     :param classifier: CarClassifier object
         Classifier.
-    :param scale_ratios: float
+    :param step_size: 1x2 tuple, float
+        Size of the sliding step in the unit of the image shape.
+    :param scales: a tuple of float
         Scales of the original image.
+    :param regions: a tuple of ((x0, y0), (x1, y1))
+        Search region of the image in fraction.
     :param confidence_thresh: float
         Threshold of the classification score.
     :param overlap_thresh: float, between 0 and 1
         Overlap threshold when applying non-maxima-suppression.
     :param heat_thresh: float
         Threshold of the heat map.
-    :param step_size: 1x2 tuple, float
-        Size of the sliding step in the unit of the image shape.
-    :param region: tuple of ((x0, y0), (x1, y1))
-        Search region of the image in fraction.
 
     :return car_boxes: list of ((x0, y0), (x1, y1))
         Diagonal coordinates of the predicted boxes.
     """
-    x0 = int(region[0][0]*img.shape[1])
-    x1 = int(region[1][0]*img.shape[1])
-    y0 = int(region[0][1]*img.shape[0])
-    y1 = int(region[1][1]*img.shape[0])
-    search_region = img[y0:y1, x0:x1, :]
-
     # Applying sliding window search with different scale ratios
     window_coordinates = []
     window_confidences = []
-    for ratio in scale_ratios:
+    for scale, region in zip(scales, regions):
+        x0 = int(region[0][0] * img.shape[1])
+        x1 = int(region[1][0] * img.shape[1])
+        y0 = int(region[0][1] * img.shape[0])
+        y1 = int(region[1][1] * img.shape[0])
+        search_region = img[y0:y1, x0:x1, :]
+
         scores, windows = classifier.sliding_window_predict(
-            search_region, step_size=step_size, binary=False, scale=ratio)
+            search_region, step_size=step_size, binary=False, scale=scale)
 
         for window, score in zip(windows, scores):
             if score > confidence_thresh:

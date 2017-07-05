@@ -64,9 +64,10 @@ thresh_params = [
 ]
 
 # It is suggested to choose significantly different box sizes
-car_search_params = {'scale_ratios': (0.50, 0.75),
-                     'confidence_thresh': 0.35,
+car_search_params = {'scales': (0.50, 0.75),
+                     'confidence_thresh': 0.3,
                      'overlap_thresh': 0.2,
                      'heat_thresh': 3.0,
-                     'step_size': (0.125, 0.125),
-                     'region': ((0, 0.48), (1.0, 0.85))}
+                     'step_size': (0.125, 0.0625),
+                     'regions': (((0.30, 0.50), (1.00, 0.95)),
+                                 ((0.50, 0.50), (0.90, 0.80)))}
