@@ -6,45 +6,46 @@ import pickle
 import random
 import cv2
 
-from sklearn.svm import LinearSVC
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
 import matplotlib.pyplot as plt
-from feature_extraction import HogExtractor, LbpExtractor
 
-from car_classifier import CarClassifier
-from utilities import search_cars, draw_boxes
-from parameters import car_files, noncar_files
+from car_classifier import train_classifier
+from utilities import sw_search_car, draw_box, read_image_data, augment_image_data
+from parameters import car_files, noncar_files, car_search_params
 
+
+# -----------------------------------------------------------------------------
+# Visualize the augmented images
+# -----------------------------------------------------------------------------
+
+imgs, labels = read_image_data()
+imgs_augmented, labels_augmented = augment_image_data(imgs, labels, 16)
+fig, ax = plt.subplots(4, 4, figsize=(8, 9))
+ax = ax.flatten()
+for i in range(len(ax)):
+    ax[i].imshow(imgs_augmented[i])
+    ax[i].set_title("Label: {}".format(labels_augmented[i]))
+    ax[i].set_axis_off()
+
+plt.suptitle("Augmented images")
+plt.show()
+
+# -----------------------------------------------------------------------------
+# Load or train a classifier
+# -----------------------------------------------------------------------------
 
 output = 'car_classifier.pkl'
 if not os.path.isfile(output):
-    # Train a classifier
-    cls = LinearSVC(C=0.0001)
-    # cls = DecisionTreeClassifier(max_depth=10)
-    # cls = RandomForestClassifier(n_estimators=20, max_depth=6)
+    train_classifier(output, 10000)
 
-    ext = HogExtractor(colorspace='YCrCb', cell_per_block=(2, 2))
-    # ext = LbpExtractor(colorspace='YCrCb')
+with open('car_classifier.pkl', "rb") as fp:
+    car_classifier = pickle.load(fp)
+print("Load car classifier from {}".format(output))
 
-    # The critical hyper-parameter here is color_space='YCrCb'
-    # A high accuracy (> 99%) is important here to reduce the
-    # false-positive
-    car_classifier = CarClassifier(classifier=cls, extractor=ext)
-    car_classifier.train(
-        car_files, noncar_files, test_size=0.2, max_images=50000)
-
-    with open(output, "wb") as fp:
-        pickle.dump(car_classifier, fp)
-    print("Car classifier was saved in {}".format(output))
-else:
-    with open('car_classifier.pkl', "rb") as fp:
-        car_classifier = pickle.load(fp)
-    print("Load car classifier from {}".format(output))
-
+# -----------------------------------------------------------------------------
 # Test the classifier on a single image
+# -----------------------------------------------------------------------------
 
-fig, ax = plt.subplots(2, 4, figsize=(8, 4.5))
+_, ax = plt.subplots(2, 4, figsize=(8, 4.5))
 ax = ax.flatten()
 for i in range(len(ax)):
     if i < 4:
@@ -58,7 +59,10 @@ for i in range(len(ax)):
     ax[i].set_title("Prediction: {}".format(prediction), fontsize=10)
 plt.show()
 
+# -----------------------------------------------------------------------------
 # Test sliding window classifier
+# -----------------------------------------------------------------------------
+
 with open('car_classifier.pkl', "rb") as fp:
     car_classifier = pickle.load(fp)
 
@@ -66,11 +70,16 @@ for i in range(10):
     test_image = 'test_images/test_image{:02d}.png'.format(i+1)
     test_img = cv2.imread(test_image)
 
-    boxes = search_cars(test_img, car_classifier, scale_ratios=(0.5, 0.7),
-                        confidence_thresh=0.2, overlap_thresh=0.2,
-                        step_size=(0.125, 0.125), region=((0.0, 0.5), (1.0, 0.9)))
+    boxes = sw_search_car(
+        test_img, car_classifier,
+        scale_ratios=car_search_params['scale_ratios'],
+        confidence_thresh=car_search_params['confidence_thresh'],
+        overlap_thresh=car_search_params['overlap_thresh'],
+        heat_thresh=car_search_params['heat_thresh'],
+        step_size=car_search_params['step_size'],
+        region=car_search_params['region'])
 
-    test_img = draw_boxes(test_img, boxes)
+    test_img = draw_box(test_img, boxes)
 
     cv2.imshow('img', test_img)
     cv2.waitKey(0)

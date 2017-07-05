@@ -1,18 +1,26 @@
 """
 Functions:
 - change_colorspace()
+- read_image_data()
+- augment_image_data()
 - non_maxima_suppression()
-- draw_windows()
+- merge_box()
+- box_by_heat()
+- draw_box()
 - two_plots()
 
 Plot the original and processed image together.
 
 """
 import re
+import random
 
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from skimage.measure import label
+
+from parameters import car_files, noncar_files
 
 
 def change_colorspace(img, color_space):
@@ -51,6 +59,87 @@ def change_colorspace(img, color_space):
     return new_img
 
 
+def read_image_data(max_count=100000):
+    """Read image data from files.
+
+    :param max_count: int
+        Maximum number of data to read.
+
+    :returns: numpy.ndarray
+        Image data.
+    :return labels: 1D numpy.ndarray
+        Image labels.
+    """
+    imgs = []
+    labels = np.hstack((np.ones(len(car_files)),
+                        np.zeros(len(noncar_files)))).astype(np.int8)
+
+    for file in car_files + noncar_files:
+        img = cv2.imread(file)
+        imgs.append(img)
+
+        if len(imgs) > max_count:
+            break
+
+    return np.array(imgs, dtype=np.uint8), labels
+
+
+def augment_image_data(imgs, labels, number=5000, gain=0.2, bias=20):
+    """Augment image data
+
+    @param imgs: numpy.ndarray
+        Features.
+    @param labels: 1D numpy.ndarray
+        Labels.
+    @param number: int
+        Number of augmented data.
+    @param gain: float
+        Maximum gain jitter.
+    @param bias: int
+        Maximum absolute bias jitter.
+
+    @return new_features: numpy.ndarray
+        Augmented features.
+    @return new_labels: 1D numpy.ndarray
+        Augmented labels.
+    """
+    new_imgs = []
+    new_labels = []
+
+    size = len(imgs)
+    for i in range(number):
+        choice = random.randint(0, size - 1)
+        img = imgs[choice]
+
+        # Randomly flip the image horizontally
+        if random.random() > 0.5:
+            img = cv2.flip(img, 1)
+
+        # Randomly remove the color information
+        if random.random() > 0.5:
+            img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            img = np.stack([img_gray, img_gray, img_gray], axis=-1)
+
+        # Random brightness and contrast jitter
+        if img.mean() > 155:
+            alpha = 1 + gain*(random.random() - 1.0)
+            beta = bias*(random.random() - 1.0)
+        elif img.mean() < 100:
+            alpha = 1 + gain*(1.0 - random.random())
+            beta = bias*(1.0 - random.random())
+        else:
+            alpha = 1 + gain * (2 * random.random() - 1.0)
+            beta = bias * (2 * random.random() - 1.0)
+        img = img*alpha + beta
+        img[img > 255] = 255
+        img[img < 0] = 0
+
+        new_imgs.append(img)
+        new_labels.append(labels[choice])
+
+    return np.asarray(new_imgs, dtype=np.uint8), np.asarray(new_labels)
+
+
 def non_maxima_suppression(boxes, scores, threshold=0.5):
     """Apply the non-maxima suppresion to boxes
 
@@ -64,7 +153,8 @@ def non_maxima_suppression(boxes, scores, threshold=0.5):
     :param threshold: float, between 0 and 1
         Overlap threshold.
 
-    :return a list of diagonal coordinates of the selected boxes.
+    :return a list of diagonal coordinates ((x0, y0), (x1, y1))
+            of the selected boxes.
     """
     # if there are no boxes, return an empty list
     if len(boxes) == 0:
@@ -103,8 +193,8 @@ def non_maxima_suppression(boxes, scores, threshold=0.5):
         w = np.maximum(0, xx2 - xx1 + 1)
         h = np.maximum(0, yy2 - yy1 + 1)
 
-        # compute the ratio of overlap (the denominator is the smaller area)
-        overlap = w*h / np.minimum(area[i], area[sorted_index[:-1]])
+        # compute the ratio of overlap
+        overlap = w*h / area[sorted_index[:-1]]
 
         # delete all indices from the index list that have
         sorted_index = np.delete(
@@ -114,9 +204,86 @@ def non_maxima_suppression(boxes, scores, threshold=0.5):
     return pick
 
 
-def search_cars(img, classifier, scale_ratios=(1.0,), confidence_thresh=0.0,
-                overlap_thresh=0.5, step_size=(1.0, 1.0),
-                region=((0.0, 0.0), (1.0, 1.0))):
+def merge_box(boxes, shape):
+    """Merge connected boxes
+
+    :param boxes: list of tuples
+        A list of diagonal coordinates ((x0, y0), (x1, y1)) of boxes.
+    :param shape: tuple, (x, y)
+        Shape of the background image.
+
+    :return new_boxes: list of tuples
+        A list of diagonal coordinates ((x0, y0), (x1, y1)) of boxes.
+    """
+    if len(boxes) == 0:
+        return []
+
+    # construct the background
+    bkg = np.zeros(shape)
+    # Assigned 1 to the areas enclosed by the boxes (including border)
+    for box in boxes:
+        for x in range(box[0][0], box[1][0] + 1):
+            for y in range(box[0][1], box[1][1] + 1):
+                bkg[y, x] = 1
+
+    # Label the connected area
+    labeled, count = label(bkg, connectivity=1, return_num=True)
+
+    # Make new boxes according to the labels
+    new_boxes = []
+    for i in range(count):
+        indices = np.where(labeled == i + 1)
+        new_boxes.append(((min(indices[1]), min(indices[0])),
+                          (max(indices[1]), max(indices[0]))))
+
+    return new_boxes
+
+
+def box_by_heat(boxes, confidences, shape, thresh=1.0):
+    """Select the boxes by 'heat' (sum of confidence)
+
+    :param boxes: list of tuples
+        A list of diagonal coordinates ((x0, y0), (x1, y1)) of boxes.
+    :param confidences: list
+        Confidences of the boxes.
+    :param shape: tuple, (x, y)
+        Shape of the background image.
+    :param thresh: float
+        Threshold of the heat map.
+
+    :return new_boxes: list of tuples
+        A list of diagonal coordinates ((x0, y0), (x1, y1)) of boxes.
+    """
+    if len(boxes) == 0:
+        return []
+
+    # construct the background
+    heat_map = np.zeros(shape)
+    # calculate the heat of each pixel by adding up the confidences
+    for i in range(len(boxes)):
+        for x in range(boxes[i][0][0], boxes[i][1][0] + 1):
+            for y in range(boxes[i][0][1], boxes[i][1][1] + 1):
+                heat_map[y, x] += confidences[i]
+
+    heat_map[heat_map < thresh] = 0
+
+    # Label the connected area
+    heat_map[heat_map > 0] = 1
+    labeled, count = label(heat_map, connectivity=1, return_num=True)
+
+    # Make new boxes according to the labels
+    new_boxes = []
+    for i in range(count):
+        indices = np.where(labeled == i + 1)
+        new_boxes.append(((min(indices[1]), min(indices[0])),
+                          (max(indices[1]), max(indices[0]))))
+
+    return new_boxes
+
+
+def sw_search_car(img, classifier, scale_ratios=(1.0,), confidence_thresh=0.0,
+                  overlap_thresh=0.5, heat_thresh=0.5, step_size=(1.0, 1.0),
+                  region=((0.0, 0.0), (1.0, 1.0))):
     """Search cars in an image
 
     :param img: numpy.ndarray
@@ -127,8 +294,10 @@ def search_cars(img, classifier, scale_ratios=(1.0,), confidence_thresh=0.0,
         Scales of the original image.
     :param confidence_thresh: float
         Threshold of the classification score.
-    :param overlap_threshold: float, between 0 and 1
+    :param overlap_thresh: float, between 0 and 1
         Overlap threshold when applying non-maxima-suppression.
+    :param heat_thresh: float
+        Threshold of the heat map.
     :param step_size: 1x2 tuple, float
         Size of the sliding step in the unit of the image shape.
     :param region: tuple of ((x0, y0), (x1, y1))
@@ -144,36 +313,39 @@ def search_cars(img, classifier, scale_ratios=(1.0,), confidence_thresh=0.0,
     search_region = img[y0:y1, x0:x1, :]
 
     # Applying sliding window search with different scale ratios
-    windows_confidences = []
-    windows_coordinates = []
+    window_coordinates = []
+    window_confidences = []
     for ratio in scale_ratios:
-        scores, windows = \
-            classifier.sliding_window_predict(
-                search_region, step_size=step_size, binary=False, scale=ratio)
+        scores, windows = classifier.sliding_window_predict(
+            search_region, step_size=step_size, binary=False, scale=ratio)
 
-        windows_confidences.extend(scores)
-        for window in windows:
-            point1 = (window[0][0] + x0, window[0][1] + y0)
-            point2 = (window[1][0] + x0, window[1][1] + y0)
-            windows_coordinates.append((point1, point2))
+        for window, score in zip(windows, scores):
+            if score > confidence_thresh:
+                point1 = (window[0][0] + x0, window[0][1] + y0)
+                point2 = (window[1][0] + x0, window[1][1] + y0)
+                window_coordinates.append((point1, point2))
+                window_confidences.append(score)
 
-    # pick windows with confidence higher than threshold
-    windows_coordinates_threshed = []
-    windows_confidences_threshed = []
-    for window, confidence in zip(windows_coordinates, windows_confidences):
-        if confidence > confidence_thresh:
-            windows_coordinates_threshed.append(window)
-            windows_confidences_threshed.append(confidence)
+    # Apply the 'non_maxima_suppression' to filter the windows
+    car_boxes = non_maxima_suppression(
+        window_coordinates, window_confidences, overlap_thresh)
 
-    # Apply the 'non maxima suppression' to filter the rest windows
-    car_boxes = non_maxima_suppression(windows_coordinates_threshed,
-                                       windows_confidences_threshed,
-                                       overlap_thresh)
+    # Merge the overlapped boxes
+    # Note: merge the connected box is not a good idea, especially when
+    # several cars overlap!
+    # car_boxes = merge_box(car_boxes, img.shape[:2])
+
+    # select the box by 'heat' (sum of confidence)
+    # Note: select by heat results in a box which is much bigger than
+    # the car!
+    # car_boxes = box_by_heat(windows_coordinates_threshed,
+    #                         windows_confidences_threshed,
+    #                         img.shape[:2], thresh=heat_thresh)
 
     return car_boxes
 
 
-def draw_boxes(img, boxes, color=(0, 0, 255), thickness=4):
+def draw_box(img, boxes, color=(0, 0, 255), thickness=4):
     """Draw rectangular boxes in an image
 
     :param img: numpy.ndarray

@@ -8,7 +8,7 @@ from moviepy.editor import VideoFileClip
 
 from lane_line import TwinLine
 from threshold import Threshold
-from utilities import draw_boxes, search_cars, two_plots
+from utilities import draw_box, sw_search_car, two_plots
 
 
 INF = 1.0e21
@@ -20,10 +20,10 @@ DEBUG = False
 
 class TrafficVideo(object):
     """TrafficVideo class"""
-    def __init__(self, video_clip, camera_cali_file=None,
-                 perspective_trans_params=None,
-                 thresh_params=None, search_laneline=True, max_poor_fit_time=0.5,
-                 search_car=True, car_classifier=None):
+    def __init__(self, video_clip, camera_cali_file, perspective_trans_params,
+                 thresh_params, car_classifier, car_search_params,
+                 is_search_laneline=True, is_search_car=True,
+                 max_poor_fit_time=0.5):
         """Initialization.
 
         :param video_clip: string
@@ -38,15 +38,17 @@ class TrafficVideo(object):
                 dst = np.float32([[0, 720], [0, 0], [1280, 0], [1280, 720]])
         :param thresh_params: list of dictionary
             Parameters for the gradient and color threshhold.
+        :param car_classifier: CarClassifier() object
+            Car classifier.
+        :param car_search_params: dictionary
+            Parameters for performing car search in an image.
+        :param is_search_car: Boolean
+            True for search cars in the video/image.
+        :param is_search_laneline: Boolean
+            True for search lanelines in the video/image.
         :param max_poor_fit_time: float
             Maximum allowed period (in second) of consecutive fail before
             a fresh line search.
-        :param car_classifier:
-            Car classifier pickle file.
-        :param search_car: Boolean
-            True for search cars in the video/image.
-        :param search_laneline: Boolean
-            True for search lanelines in the video/image.
         """
         self.clip = VideoFileClip(video_clip)
         self.shape = self.get_video_image(0).shape
@@ -74,23 +76,20 @@ class TrafficVideo(object):
 
         self.max_poor_fit_time = max_poor_fit_time
 
-        if thresh_params is not None and search_laneline is True:
+        if thresh_params is not None and is_search_laneline is True:
             self._is_search_laneline = True
         else:
             self._is_search_laneline = False
 
         self.lines = None
 
-        if car_classifier is not None and search_car is True:
-            try:
-                with open(car_classifier, "rb") as fp:
-                    self.car_classifier = pickle.load(fp)
-            except IOError:
-                raise IOError("Not found: car classifier!")
-
+        if car_classifier is not None and is_search_car is True:
+            self.car_classifier = car_classifier
             self._is_search_car = True
         else:
             self._is_search_car = False
+
+        self.car_search_params = car_search_params
 
     def show_perspective_transform(self, frame=None):
         """Visualize the perspective transformation for one frame
@@ -173,11 +172,14 @@ class TrafficVideo(object):
             processed = np.copy(undistorted)
 
         if self._is_search_car is True:
-            boxes = search_cars(processed, self.car_classifier,
-                                scale_ratios=(0.5, 0.7), confidence_thresh=0.2,
-                                overlap_thresh=0.2, step_size=(0.125, 0.125),
-                                region=((0, 0.5), (1.0, 0.9)))
-            processed = draw_boxes(processed, boxes)
+            boxes = sw_search_car(
+                processed, self.car_classifier,
+                scale_ratios=self.car_search_params['scale_ratios'],
+                confidence_thresh=self.car_search_params['confidence_thresh'],
+                overlap_thresh=self.car_search_params['overlap_thresh'],
+                step_size=self.car_search_params['step_size'],
+                region=self.car_search_params['region'])
+            processed = draw_box(processed, boxes)
 
         return processed
 

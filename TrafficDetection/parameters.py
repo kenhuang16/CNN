@@ -5,6 +5,11 @@ import numpy as np
 import glob
 
 
+INF = 1.0e21
+Y_METER_PER_PIXEL = 30.0 / 720  # meters per pixel in y dimension
+X_METER_PER_PIXEL = 3.7 / 900  # meters per pixel in x dimension
+
+
 car_files = []
 car_files.extend(glob.glob("data/vehicles/KITTI_extracted/*.png"))
 car_files.extend(glob.glob("data/vehicles/GTI_Far/*.png"))
@@ -57,3 +62,11 @@ thresh_params = [
     {'color_space': 'hls', 'channel': 2, 'direction': None, 'thresh': (100, 255)},
     {'color_space': 'gray', 'channel': None, 'direction': None, 'thresh': (190, 255)}
 ]
+
+# It is suggested to choose significantly different box sizes
+car_search_params = {'scale_ratios': (0.50, 0.75),
+                     'confidence_thresh': 0.35,
+                     'overlap_thresh': 0.2,
+                     'heat_thresh': 3.0,
+                     'step_size': (0.125, 0.125),
+                     'region': ((0, 0.48), (1.0, 0.85))}

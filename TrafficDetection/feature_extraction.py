@@ -19,7 +19,7 @@ from utilities import change_colorspace
 class HogExtractor(object):
     """HOG feature extractor class"""
     def __init__(self, colorspace='RGB', orient=9, pix_per_cell=(8, 8),
-                 cell_per_block=(2, 2), block_normalization='L2',
+                 cell_per_block=(1, 1), block_normalization='L2',
                  visual=False):
         """Initialization
 

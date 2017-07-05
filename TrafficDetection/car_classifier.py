@@ -1,11 +1,9 @@
-#!/usr/bin/python
-
 """
 CarClassifier class
 """
-import numpy as np
-import cv2
+import pickle
 
+import numpy as np
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -14,6 +12,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 from feature_extraction import HogExtractor, LbpExtractor
+from utilities import augment_image_data, read_image_data
 
 
 class CarClassifier(object):
@@ -44,58 +43,24 @@ class CarClassifier(object):
 
         self.shape = shape  # image shape
 
-    def _load(self, files, max_files):
-        """Read features from image files.
-
-        :param: files: a list of string
-            File names.
-        :param max_files: int
-            Maximum number of files to read.
-
-        :returns : numpy.ndarray
-            Features of images.
-        """
-        features = []
-        for file in files:
-            img = cv2.imread(file)
-            assert img.dtype == np.uint8
-
-            # Check the shape of image
-            if img.shape[0:2] != self.shape:
-                print("Warning: image shape is not {}".format(self.shape))
-                img = cv2.resize(img, self.shape)
-
-            # extract features
-            img_features = self.extractor.extract(img)
-
-            features.append(img_features)
-
-            if len(features) > max_files:
-                break
-
-        return np.array(features, dtype=np.float32)
-
-    def train(self, cars, non_cars, max_images=100000, test_size=0.3,
-              random_state=None):
+    def train(self, imgs, y, test_size=0.2, random_state=None):
         """Train a car classifier.
 
-        :param cars: list
-            List of car filenames.
-        :param non_cars: list
-            List of non-car filenames.
-        :param max_images: int
-            Maximum number of file to read in each data set.
+        :param imgs: numpy.ndarray
+            Images.
+        :param y: 1D numpy.ndarray
+            Labels
         :param test_size: float, in (0, 1)
-            Percent of test data in self.X.
+            Percent of data used for testing.
         :param random_state: int or None.
             Pseudo-random number generator state used for random sampling.
         """
-        car_features = self._load(cars, max_images)
-        noncar_features = self._load(non_cars, max_images)
+        assert (imgs.shape[1:3] == self.shape)
 
-        X = np.vstack((car_features, noncar_features))
-        y = np.hstack((np.ones(len(car_features)),
-                       np.zeros(len(noncar_features)))).astype(np.int8)
+        # feature extraction
+        X = []
+        for img in imgs:
+            X.append(self.extractor.extract(img))
 
         X_shuffle, y_shuffle = shuffle(X, y)
 
@@ -178,3 +143,31 @@ class CarClassifier(object):
             Class labels.
         """
         return self.classifier.predict(self.scaler.transform(X)).astype(np.int8)
+
+
+def train_classifier(pickle_file, augmentation=None):
+    """Train a car classifier and pickle it
+
+    @param pickle_file: string
+        Path of the file to be pickled.
+    @param augmentation: None/int
+        Number of augmented data.
+    """
+    # Train a classifier
+    cls = LinearSVC(C=0.0001)
+
+    ext = HogExtractor(colorspace='YCrCb', cell_per_block=(2, 2))
+
+    car_classifier = CarClassifier(classifier=cls, extractor=ext)
+    X, y = read_image_data()
+
+    if augmentation is not None:
+        X_augmented, y_augmented = augment_image_data(X, y, augmentation)
+        X = np.concatenate((X, X_augmented))
+        y = np.concatenate((y, y_augmented))
+
+    car_classifier.train(X, y, test_size=0.2)
+
+    with open(pickle_file, "wb") as fp:
+        pickle.dump(car_classifier, fp)
+    print("Car classifier was saved in {}".format(pickle_file))
