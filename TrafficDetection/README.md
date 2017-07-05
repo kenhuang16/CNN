@@ -17,7 +17,7 @@ Then the output `obj_points` and `img_points` were used to calculate the camera 
 
 ## Lane line finding
 
-**pipeline**: perspective transformation -> threshold -> lane line search -> curve fit -> inverse perspective transform
+pipeline: perspective transformation -> threshold -> lane line search -> curve fit -> inverse perspective transformation
 
 ### Perspective transformation.
 
@@ -44,7 +44,7 @@ Transform the lane lines in the bird view image back to the original image.
 
 ## Vehicle detection
 
-**pipeline**: train a classifier -> feature extraction (sliding window) -> vehicle classification
+pipeline: train a classifier -> feature extraction (sliding window) -> vehicle classification
 
 #### Vehicle and non-vehicle data
 
@@ -62,19 +62,22 @@ python unittest_feature_extraction.py
 
  Two algorithms have been implemented in this project: Histogram of Oriented Gradients (HOG) and Local Binary Pattern (LBP) 
 
-**sliding window feature extraction**: The size of the original image will be scaled, but the window size is always **64x64**. In order to detect vehicles in an image, the sliding window method should be applied multiple times using different scales.
+sliding window feature extraction: The size of the original image will be scaled, but the window size is always 64x64. In order to detect vehicles in an image, the sliding window method should be applied multiple times using different scales and different search regions.
 
 #### Vehicle classification
+
+After the sliding window feature extraction, each window will be classified by a well-trained classifier (here the Linear SVM). A greedy algorithm [non-maxima-suppression](http://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/) will be used to remove duplicated car windows.
 
 ```
 # delete the file "car_classifier.pkl" to train a new classifier
 python unittest_car_classifier.py
 ```
 
+***To get better result, the classifier needs to be improved. For instance, get more high-quality data.***
 
 ## References
 
 - [Histograms of Oriented Gradients for Human Detection](http://www.csd.uwo.ca/~olga/Courses/Fall2009/9840/Papers/DalalTriggsCVPR05.pdf) - the original HOG paper
 - [Implementation of HOG for Human Detection](http://www.geocities.ws/talh_davidc/#cst_extract) - A very good explanation of HOG
 - [Local Binary Patterns with Python & OpenCV](http://www.pyimagesearch.com/2015/12/07/local-binary-patterns-with-python-opencv) - A very good explanation of LBP
-- [(Faster) Non-Maximum Suppression in Python](http://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/) - Not the implementation in this project, but a very interesting poster.
+- [Real time Detection of Lane Markers in Urban Streets](https://arxiv.org/abs/1411.7113)
