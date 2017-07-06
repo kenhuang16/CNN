@@ -20,10 +20,10 @@ DEBUG = False
 
 class TrafficVideo(object):
     """TrafficVideo class"""
-    def __init__(self, video_clip, camera_cali_file, perspective_trans_params,
-                 thresh_params, car_classifier, car_search_params,
-                 is_search_laneline=True, is_search_car=True,
-                 max_poor_fit_time=0.5):
+    def __init__(self, video_clip, is_search_laneline=True, is_search_car=True,
+                 camera_cali_file='', perspective_trans_params=None,
+                 thresh_params=None, max_poor_fit_time=0.5,
+                 car_classifier_file='', car_search_params=None):
         """Initialization.
 
         :param video_clip: string
@@ -38,8 +38,8 @@ class TrafficVideo(object):
                 dst = np.float32([[0, 720], [0, 0], [1280, 0], [1280, 720]])
         :param thresh_params: list of dictionary
             Parameters for the gradient and color threshhold.
-        :param car_classifier: CarClassifier() object
-            Car classifier.
+        :param car_classifier_file: String
+            Pickle file for CarClassifier object.
         :param car_search_params: dictionary
             Parameters for performing car search in an image.
         :param is_search_car: Boolean
@@ -53,6 +53,19 @@ class TrafficVideo(object):
         self.clip = VideoFileClip(video_clip)
         self.shape = self.get_video_image(0).shape
         self.frame = 0  # the current frame index
+
+        if is_search_car is False and is_search_laneline is False:
+            raise SystemExit("Nothing needs to be done!:(")
+
+        self._is_search_laneline = is_search_laneline
+        self.thresh_params = thresh_params
+        self.max_poor_fit_time = max_poor_fit_time
+        self.lines = None
+
+        self._is_search_car = is_search_car
+        with open(car_classifier_file, "rb") as fp:
+            self.car_classifier = pickle.load(fp)
+        self.car_search_params = car_search_params
 
         # Load camera calibration information
         with open(camera_cali_file, "rb") as fp:
@@ -71,25 +84,6 @@ class TrafficVideo(object):
             self.ppt_trans_src, self.ppt_trans_dst)
         self.inv_ppt_trans_matrix = cv2.getPerspectiveTransform(
             self.ppt_trans_dst, self.ppt_trans_src)
-
-        self.thresh_params = thresh_params
-
-        self.max_poor_fit_time = max_poor_fit_time
-
-        if thresh_params is not None and is_search_laneline is True:
-            self._is_search_laneline = True
-        else:
-            self._is_search_laneline = False
-
-        self.lines = None
-
-        if car_classifier is not None and is_search_car is True:
-            self.car_classifier = car_classifier
-            self._is_search_car = True
-        else:
-            self._is_search_car = False
-
-        self.car_search_params = car_search_params
 
     def show_perspective_transform(self, frame=None):
         """Visualize the perspective transformation for one frame

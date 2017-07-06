@@ -10,21 +10,24 @@ import pickle
 import matplotlib.pyplot as plt
 
 from traffic import TrafficVideo
-from parameters import project_video, test_video, thresh_params, car_search_params
+from parameters import project_video, test_video, thresh_params, \
+                       car_search_params
 from car_classifier import train_classifier
 
 
+# Load the camera calibration parameters
+camera_calibration_file='camera_cali.pkl'
+if not os.path.isfile(camera_calibration_file):
+    raise OSError(
+        "Run unittest_camera_calibration.py to calibration the camera first!")
+
 # Load the car classifier.
-car_classifier_pickle = 'car_classifier.pkl'
-if not os.path.isfile(car_classifier_pickle):
-    train_classifier(car_classifier_pickle)
+car_classifier_file = 'car_classifier.pkl'
+if not os.path.isfile(car_classifier_file):
+    raise OSError("Run unittest_car_classifier.py to train a classifier!")
 
-with open(car_classifier_pickle, "rb") as fp:
-    car_classifier = pickle.load(fp)
-print("Load car classifier from {}".format(car_classifier_pickle))
-
-# video = project_video
-video = test_video
+video = project_video
+# video = test_video
 
 # Process the video
 ppt_trans_params = (video['frame'], video['src'], video['dst'])
@@ -33,7 +36,7 @@ ppt_trans_params = (video['frame'], video['src'], video['dst'])
 f1 = TrafficVideo(video['input'], camera_cali_file='camera_cali.pkl',
                   perspective_trans_params=ppt_trans_params,
                   thresh_params=thresh_params,
-                  car_classifier=car_classifier,
+                  car_classifier_file=car_classifier_file,
                   car_search_params=car_search_params,
                   is_search_laneline=False,
                   is_search_car=True)

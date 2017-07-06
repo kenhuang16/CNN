@@ -10,9 +10,11 @@ This is a combination of the advanced lane line finding and the vehicle detectio
 
 ## Camera Calibration and image undistortion 
 
-The camera distortion was calibrated by the [chessboard images](./camera_cal/). The chessboard was assumed to be fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.
+```
+python unitttest_camera_calibration.py
+```
 
-Then the output `obj_points` and `img_points` were used to calculate the camera calibration and distortion coefficients using the `cv2.calibrateCamera()`.  The result was saved in the file "./camera_cali.pkl". Undistortion of the test image "camera_cal/calibration1.jpg" using `cv2.undistort()` is shown below: 
+The camera distortion was calibrated by the [chessboard images](./camera_cal/). The chessboard was assumed to be fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.
 
 
 ## Lane line finding
@@ -25,9 +27,11 @@ Perspective transformation can only be finely tuned by eyes. A plot will pop out
 
 
 #### Threshold
+
 ```
 python threshold.py
 ```
+
 Both color and gradient thresholds have been implemented.
 
 #### Lane line search
@@ -66,12 +70,12 @@ sliding window feature extraction: The size of the original image will be scaled
 
 #### Vehicle classification
 
-After the sliding window feature extraction, each window will be classified by a well-trained classifier (here the Linear SVM). A greedy algorithm [non-maxima-suppression](http://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/) will be used to remove duplicated car windows.
-
 ```
 # delete the file "car_classifier.pkl" to train a new classifier
 python unittest_car_classifier.py
 ```
+
+After the sliding window feature extraction, each window will be classified by a well-trained classifier (here the Linear SVM). A greedy algorithm [non-maxima-suppression](http://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/) will be used to remove duplicated car windows.
 
 ***To get better result, the classifier needs to be improved. For instance, get more high-quality data.***
 
