@@ -29,7 +29,7 @@ Perspective transformation can only be finely tuned by eyes. A plot will pop out
 #### Threshold
 
 ```
-python threshold.py
+python unittest_threshold.py
 ```
 
 Both color and gradient thresholds have been implemented.

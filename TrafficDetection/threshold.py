@@ -3,9 +3,8 @@ Apply gradient and/or color threshold to an image.
 """
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
 
-from utilities import change_colorspace, two_plots
+from utilities import change_colorspace
 
 
 class Threshold(object):
@@ -88,20 +87,23 @@ class Threshold(object):
         self.binary[(self.img > thresh[0]) & (self.img <= thresh[1])] = 1
 
 
-if __name__ == "__main__":
-    test_image = "./test_images/test_image01.png"
+def thresh_image(img, params):
+    """Apply the combination of different thresholds
 
-    thresh_params = [
-        {'color_space': 'hls', 'channel': 2, 'direction': 'x', 'thresh': (20, 100)},
-        {'color_space': 'hls', 'channel': 2, 'direction': None, 'thresh': (100, 255)},
-        {'color_space': 'gray', 'channel': None, 'direction': None, 'thresh': (190, 255)}
-    ]
+    :param img: numpy.ndarray
+        Original image.
+    :param params: dictionary
+        A list of parameters used for threshing
+        e.g.
+        [{'color_space': 'hls', 'channel': 2, 'direction': 'x', 'thresh': (20, 100)},
+         {'color_space': 'hls', 'channel': 2, 'direction': None, 'thresh': (100, 255)},
 
-    img = cv2.imread(test_image)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
+    :return binary: numpy.ndarray
+        Binary image after applying threshold.
+    """
+    # Apply gradient and color threshold
     binary = None
-    for param in thresh_params:
+    for param in params:
         th = Threshold(img, param['color_space'], param['channel'])
 
         th.transform(param['direction'], thresh=param['thresh'])
@@ -110,15 +112,4 @@ if __name__ == "__main__":
         else:
             binary |= th.binary
 
-        # Visualize the result in each step
-        title1 = param['color_space'].upper() + '-' + str(param['channel'])
-        if param['direction'] is None:
-            title2 = 'color thresh ' + str(param['thresh'])
-        else:
-            title2 = param['direction'] + ' gradient thresh ' + str(param['thresh'])
-
-        two_plots(th.img, th.binary, titles=(title1, title2, ''))
-
-    plt.imshow(binary, cmap='gray')
-    plt.title("Combination of different threshold", fontsize=18)
-    plt.show()
+    return binary
