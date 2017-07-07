@@ -8,8 +8,9 @@ import cv2
 
 import matplotlib.pyplot as plt
 
+from traffic import sw_search_car
 from car_classifier import train_classifier
-from utilities import sw_search_car, draw_box, read_image_data, augment_image_data
+from utilities import draw_box, read_image_data, augment_image_data
 from parameters import car_files, noncar_files, car_search_params
 
 
