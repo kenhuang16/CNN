@@ -11,7 +11,7 @@ This is a combination of the advanced lane line finding and the vehicle detectio
 ## Camera Calibration and image undistortion 
 
 ```
-python unitttest_camera_calibration.py
+python unittest_camera_calibration.py
 ```
 
 The camera distortion was calibrated by the [chessboard images](./camera_cal/). The chessboard was assumed to be fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.
