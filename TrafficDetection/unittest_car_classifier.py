@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 
 from traffic import sw_search_car
 from car_classifier import train_classifier
-from utilities import draw_box, read_image_data, augment_image_data
+from utilities import draw_box
+from data_preparation import read_image_data, augment_image_data
 from parameters import car_files, noncar_files, car_search_params
 
 
@@ -18,7 +19,7 @@ from parameters import car_files, noncar_files, car_search_params
 # Visualize the augmented images
 # -----------------------------------------------------------------------------
 
-imgs, labels = read_image_data()
+imgs, labels = read_image_data(car_files, noncar_files)
 imgs_augmented, labels_augmented = augment_image_data(imgs, labels, 16)
 fig, ax = plt.subplots(4, 4, figsize=(8, 9))
 ax = ax.flatten()

@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 from feature_extraction import HogExtractor, LbpExtractor
-from utilities import augment_image_data, read_image_data
+from data_preparation import augment_image_data, read_image_data
 
 
 class CarClassifier(object):
