@@ -1,11 +1,13 @@
 """
-Functions:
+Various help functions:
 - change_colorspace()
 - read_image_data()
 - augment_image_data()
+- get_perspective_trans_matrix()
 - non_maxima_suppression()
 - merge_box()
 - box_by_heat()
+- sw_search_car()
 - draw_box()
 - two_plots()
 
@@ -138,6 +140,22 @@ def augment_image_data(imgs, labels, number=5000, gain=0.3, bias=30):
         new_labels.append(labels[choice])
 
     return np.asarray(new_imgs, dtype=np.uint8), np.asarray(new_labels)
+
+
+def get_perspective_trans_matrix(src, dst):
+    """Get the perspective and inverse perspective transfer matrices
+
+    :param src:
+
+    :param dst:
+
+    :return perspective transform matrix and inverse perspective
+            transform matrix
+    """
+    ppt_trans_matrix = cv2.getPerspectiveTransform(src, dst)
+    inv_ppt_trans_matrix = cv2.getPerspectiveTransform(dst, src)
+
+    return ppt_trans_matrix, inv_ppt_trans_matrix
 
 
 def non_maxima_suppression(boxes, scores, threshold=0.5):

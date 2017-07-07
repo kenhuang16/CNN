@@ -19,12 +19,19 @@ The camera distortion was calibrated by the [chessboard images](./camera_cal/). 
 
 ## Lane line finding
 
-pipeline: perspective transformation -> threshold -> lane line search -> curve fit -> inverse perspective transformation
+pipeline: perspective transformation -> filter -> threshold -> lane line search -> curve fit -> inverse perspective transformation
 
-### Perspective transformation.
+```
+python unittest_laneline_search.py
+```
+
+#### Perspective transformation.
 
 Perspective transformation can only be finely tuned by eyes. A plot will pop out at the beginning of the video processing to let you check the perspective transformation result.
 
+#### Filter
+
+Apply a normalized 2D box filter.
 
 #### Threshold
 

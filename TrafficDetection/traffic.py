@@ -1,28 +1,24 @@
 #!/usr/bin/python
 """
+class:
+    - TrafficVideo()
 """
 import pickle
 import numpy as np
 import cv2
 from moviepy.editor import VideoFileClip
 
-from lane_line import TwinLine
-from threshold import Threshold
-from utilities import draw_box, sw_search_car, two_plots
-
-
-INF = 1.0e21
-# The length (in pixel) of the front of the car in the original image.
-CAR_FRONT_LENGTH = 40
-
-DEBUG = False
+from lane_line import LaneLine, sample_lines
+from utilities import draw_box, sw_search_car, get_perspective_trans_matrix
+from threshold import thresh_image
+from parameters import INF, Y_METER_PER_PIXEL, X_METER_PER_PIXEL
 
 
 class TrafficVideo(object):
     """TrafficVideo class"""
     def __init__(self, video_clip, is_search_laneline=True, is_search_car=True,
                  camera_cali_file='', perspective_trans_params=None,
-                 thresh_params=None, max_poor_fit_time=0.5,
+                 thresh_params=None,
                  car_classifier_file='', car_search_params=None):
         """Initialization.
 
@@ -31,9 +27,8 @@ class TrafficVideo(object):
         :param camera_cali_file: string
             Name of the pickle file storing the camera calibration
         :param perspective_trans_params: tuple
-            Source and destination points of perspective transformation
-            For example, (frame, src, dst) with
-                frame the recommended frame index for perspective transformation
+            Source and destination points for perspective transformation
+            For example, (src, dst) with
                 src = np.float32([[0, 720], [570, 450], [708, 450], [1280, 720]])
                 dst = np.float32([[0, 720], [0, 0], [1280, 0], [1280, 720]])
         :param thresh_params: list of dictionary
@@ -46,70 +41,39 @@ class TrafficVideo(object):
             True for search cars in the video/image.
         :param is_search_laneline: Boolean
             True for search lanelines in the video/image.
-        :param max_poor_fit_time: float
-            Maximum allowed period (in second) of consecutive fail before
-            a fresh line search.
         """
         self.clip = VideoFileClip(video_clip)
         self.shape = self.get_video_image(0).shape
+        assert(len(self.shape) == 3)  # colored image
         self.frame = 0  # the current frame index
 
         if is_search_car is False and is_search_laneline is False:
             raise SystemExit("Nothing needs to be done!:(")
 
-        self._is_search_laneline = is_search_laneline
-        self.thresh_params = thresh_params
-        self.max_poor_fit_time = max_poor_fit_time
-        self.lines = None
-
-        self._is_search_car = is_search_car
-        with open(car_classifier_file, "rb") as fp:
-            self.car_classifier = pickle.load(fp)
-        self.car_search_params = car_search_params
-
         # Load camera calibration information
         with open(camera_cali_file, "rb") as fp:
             camera_cali = pickle.load(fp)
-
         # Get required parameters for image undistortion
         _, self.camera_matrix, self.dist_coeffs, _, _ = cv2.calibrateCamera(
             camera_cali["obj_points"], camera_cali["img_points"],
             self.shape[0:2], None, None)
 
-        # Get (inverse) perspective transformation matrices
-        self.ppt_trans_frame = perspective_trans_params[0]
-        self.ppt_trans_src = perspective_trans_params[1]
-        self.ppt_trans_dst = perspective_trans_params[2]
-        self.ppt_trans_matrix = cv2.getPerspectiveTransform(
-            self.ppt_trans_src, self.ppt_trans_dst)
-        self.inv_ppt_trans_matrix = cv2.getPerspectiveTransform(
-            self.ppt_trans_dst, self.ppt_trans_src)
+        self._is_search_laneline = is_search_laneline
+        self.thresh_params = thresh_params  # threshold parameter in lane line search
+        self.ppt_trans_params = perspective_trans_params
+        # perspective and inverse perspective transformation matrices
+        self.ppt_trans_matrix, self.inv_ppt_trans_matrix = \
+            get_perspective_trans_matrix(self.ppt_trans_params[0],
+                                         self.ppt_trans_params[1])
+        y_fit = np.arange(self.shape[0], 0, -10)
+        self.left_line = LaneLine(y_fit)
+        self.right_line = LaneLine(y_fit)
 
-    def show_perspective_transform(self, frame=None):
-        """Visualize the perspective transformation for one frame
-
-        @param frame: None/int
-            The No. of frame. The default value is given by
-            self.ppt_trans_frame.
-        """
-        if frame is None:
-            frame = self.ppt_trans_frame
-
-        img = self.get_video_image(frame)
-
-        img = cv2.undistort(img, self.camera_matrix, self.dist_coeffs,
-                            None, self.camera_matrix)
-
-        warped = cv2.warpPerspective(
-            img, self.ppt_trans_matrix, img.shape[:2][::-1])
-
-        # Visualize the transform
-        cv2.polylines(img, np.int32([self.ppt_trans_src]),
-                      1, (255, 255, 0), thickness=4)
-        cv2.polylines(warped, np.int32([self.ppt_trans_dst]),
-                      1, (255, 255, 0), thickness=4)
-        two_plots(img, warped,
-                  ('original', 'warped', 'check perspective transformation'))
+        self._is_search_car = is_search_car
+        with open(car_classifier_file, "rb") as fp:
+            self.car_classifier = pickle.load(fp)
+        self.car_search_params = car_search_params
+        self.car_boxes = []  # square boxes classified as cars
 
     def process(self, output):
         """Process the input video and dump it into the output.
@@ -157,144 +121,71 @@ class TrafficVideo(object):
         undistorted = cv2.undistort(
             img, self.camera_matrix, self.dist_coeffs, None, self.camera_matrix)
 
+        processed = np.copy(undistorted)
         if self._is_search_laneline is True:
-            processed = self._search_lanelines(undistorted)
+            warped = cv2.warpPerspective(
+                img, self.ppt_trans_matrix, img.shape[:2][::-1])
+            warped = cv2.blur(warped, (15, 5), 0)
+            threshed = thresh_image(warped, self.thresh_params)
 
-            processed = self._draw_center_indicator(processed)
-            processed = self._draw_text(processed)
-        else:
-            processed = np.copy(undistorted)
+            points = sample_lines(threshed)
+            left = []
+            right = []
+            for i in range(len(points)):
+                if points[i][0][0] < warped.shape[1] / 2:
+                    left.append(i)
+                elif points[i][0][0] > warped.shape[1] / 2:
+                    right.append(i)
+
+            if len(left) > 0:
+                self.left_line.points = points[left[0]]
+            else:
+                self.left_line.points = None
+
+            if len(right) > 0:
+                self.right_line.points = points[right[-1]]
+            else:
+                self.right_line.points = None
+
+            # Draw blue lane lines in a black ground
+            bkg = np.zeros_like(processed).astype(np.uint8)
+            for line in (self.left_line, self.right_line):
+                if line.x_fit is not None:
+                    cv2.polylines(
+                        bkg, np.int32([[np.vstack((line.x_fit, line.y_fit)).T]]),
+                        0, (0, 0, 255), thickness=30)
+
+            # Draw a green polygon in a black background
+            if self.left_line.p_fit is not None and self.right_line.p_fit is not None:
+                pts = np.hstack(((self.left_line.x_fit,
+                                  self.left_line.y_fit),
+                                 (self.right_line.x_fit[::-1],
+                                  self.right_line.y_fit[::-1]))).T
+                cv2.fillPoly(bkg, np.int_([pts]), (0, 255, 0))
+
+            # Inverse perspective transformation
+            lines = cv2.warpPerspective(bkg, self.inv_ppt_trans_matrix,
+                                        bkg.shape[:2][::-1])
+            # draw the lines on the image
+            processed = cv2.addWeighted(processed, 1.0, lines, 0.5, 0.0)
 
         if self._is_search_car is True:
             boxes = sw_search_car(
-                processed, self.car_classifier,
+                undistorted, self.car_classifier,
                 scales=self.car_search_params['scales'],
                 confidence_thresh=self.car_search_params['confidence_thresh'],
                 overlap_thresh=self.car_search_params['overlap_thresh'],
                 step_size=self.car_search_params['step_size'],
                 regions=self.car_search_params['regions'])
+
+            # draw the boxes on the image
             processed = draw_box(processed, boxes)
 
+        processed = self._draw_text(processed)
+
+        self.frame += 1
+
         return processed
-
-    def _search_lanelines(self, img):
-        """Search and draw lane lines in an image
-
-        :param img: numpy.ndarray
-            Original image.
-
-        :return img_with_lanelines: numpy.ndarray
-            Image with lane line drawn in it.
-        """
-        # Applying threshold
-        threshed = self.thresh(img)
-
-        # Transform to bird-eye view
-        bird_eye = cv2.warpPerspective(
-            threshed, self.ppt_trans_matrix, threshed.shape[:2][::-1])
-
-        # Search line in the warped image
-        if self.lines is None:
-            self.lines = TwinLine(np.arange(bird_eye.shape[0]))
-            self.lines.left.max_fail = self.clip.fps*self.max_poor_fit_time
-            self.lines.left.max_fail = self.clip.fps*self.max_poor_fit_time
-
-        self.lines.search(bird_eye)
-
-        # Draw lines in the original image
-        warp_zero = np.zeros_like(bird_eye).astype(np.uint8)
-        colored_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-        if self.lines.left.ave_x.any() and self.lines.right.ave_x.any():
-
-            pts = np.hstack(((self.lines.left.ave_x, self.lines.left.y),
-                            (self.lines.right.ave_x[::-1], self.lines.right.y[::-1]))).T
-
-            # Draw a green polygon in a black background
-            cv2.fillPoly(colored_warp, np.int_([pts]), (0, 255, 0))
-
-            # Draw the left line
-            left_pts = np.array((self.lines.left.ave_x, self.lines.left.y)).T
-            cv2.polylines(colored_warp, np.int32([left_pts]), 0, (255, 255, 0), thickness=30)
-
-            # Draw the right line
-            right_pts = np.array((self.lines.right.ave_x, self.lines.right.y)).T
-            cv2.polylines(colored_warp, np.int32([right_pts]), 0, (255, 255, 0), thickness=30)
-
-            # Draw a line corresponding to the center of the two lane lines
-            center_pts = (left_pts[-50:] + right_pts[-50:])/2
-            cv2.polylines(colored_warp, np.int32([center_pts]), 0, (255, 255, 0), thickness=5)
-
-        elif self.lines.left.ave_x.any():
-            # Draw the left line only
-            left_pts = np.array((self.lines.left.ave_x, self.lines.left.y)).T
-            cv2.polylines(colored_warp, np.int32([left_pts]), 0, (255, 255, 0), thickness=30)
-
-        elif self.lines.right.ave_x.any():
-            # Draw the right line only
-            right_pts = np.array((self.lines.right.ave_x, self.lines.right.y)).T
-            cv2.polylines(colored_warp, np.int32([right_pts]), 0, (255, 255, 0), thickness=30)
-
-        # Applying inverse perspective transformation
-        inv_warp = cv2.warpPerspective(
-            colored_warp, self.inv_ppt_trans_matrix, colored_warp.shape[:2][::-1])
-
-        # Draw lines in the original image
-        img_with_lanelines = cv2.addWeighted(img, 1.0, inv_warp, 0.5, 0.0)
-
-        return img_with_lanelines
-
-    def thresh(self, img):
-        """Apply the combination of different thresholds
-
-        :param img: numpy.ndarray
-            Original image.
-
-        :return threshed: numpy.ndarray
-            Image after applying threshold.
-        """
-        # Apply gradient and color threshold
-        binary = None
-        for param in self.thresh_params:
-            th = Threshold(img, param['color_space'], param['channel'])
-
-            th.transform(param['direction'], thresh=param['thresh'])
-            if binary is None:
-                binary = th.binary
-            else:
-                binary |= th.binary
-
-        # Remove the influence from the front of the car
-        binary[-40:, :] = 0
-
-        return binary
-
-    def _draw_center_indicator(self, img):
-        """Draw two lines
-
-        One refers to the center of the car, and the other refers to
-        the center of the two lane lines.
-
-        :param img: numpy.ndarray
-            Original image.
-
-        :return new_img: numpy.ndarray.
-            Processed image.
-        """
-        new_img = np.copy(img)
-
-        # Assume the camera is at the center of the car
-        car_center_pts = np.vstack([np.ones(50)*new_img.shape[1]/2,
-                                    np.arange(new_img.shape[0])[-50:]]).T
-        cv2.polylines(new_img, np.int32([car_center_pts]), 0, (0, 0, 0), thickness=5)
-
-        # Draw the center of the two lane lines
-        if self.lines.left.ave_x.any() and self.lines.right.ave_x.any():
-            off_center = (self.lines.left_space - self.lines.right_space)/2.0
-            cv2.putText(new_img, "off center: {:.1} m".format(off_center),
-                        (int(new_img.shape[1]/2 - 120), new_img.shape[0] - 150),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-
-        return new_img
 
     def _draw_text(self, img):
         """Put texts on an image.
@@ -326,25 +217,25 @@ class TrafficVideo(object):
         left_space = {'text': '', 'color': c_norm}
         right_space = {'text': '', 'color': c_norm}
 
-        if self.lines.left.ave_p.any() and self.lines.right.ave_p.any():
+        if self.left_line.p_fit is not None and self.right_line.p_fit is not None:
             left_space['text'] = "To left laneline: {:.1f} m".\
-                format(self.lines.left_space)
-
+                format(X_METER_PER_PIXEL*(self.shape[1]/2 - self.left_line.x_fit[0]))
             right_space['text'] = "To right laneline: {:.1f} m".\
-                format(self.lines.right_space)
+                format(X_METER_PER_PIXEL*(self.right_line.x_fit[0] - self.shape[1]/2))
 
-        elif self.lines.left.ave_p.any():
+        elif self.left_line.p_fit is not None:
             left_space['text'] = "To left laneline: {:.1f} m".\
-                format(self.lines.left_space)
+                format(X_METER_PER_PIXEL*(self.shape[1]/2 - self.left_line.x_fit[0]))
 
             right_space['text'] = "To right laneline: unknown!"
             right_space['color'] = c_warning
-        elif self.lines.right.ave_p.any():
+
+        elif self.right_line.p_fit is not None:
             left_space['text'] = "To left laneline: unknown!"
             left_space['color'] = c_warning
 
             right_space['text'] = "To right laneline: {:.1f} m".\
-                format(self.lines.right_space)
+                format(X_METER_PER_PIXEL*(self.right_line.x_fit[0] - self.shape[1]/2))
         else:
             left_space['text'] = "To left laneline: unknown!"
             left_space['color'] = c_warning
@@ -364,19 +255,34 @@ class TrafficVideo(object):
         local_bending_radius = {'text': '', 'color': c_norm}
         ahead_bending_angle = {'text': '', 'color': c_norm}
         # Radius of curvature
-        if self.lines.local_bend_radius is None:
-            local_bending_radius['text'] = "Local bending radius: Unknown"
-            local_bending_radius['color'] = c_warning
-            ahead_bending_angle['text'] = "Ahead bending angle: Unknown"
-            ahead_bending_angle['color'] = c_warning
-        else:
-            local_bending_radius['text'] = \
-                "Local bending radius: {:.0f} m".format(
-                    self.lines.local_bend_radius)
-
-            ahead_bending_angle['text'] = \
-                "Ahead bending angle: {:.1f} deg".format(
-                    self.lines.ahead_bend_angle)
+        # if self.lines.local_bend_radius is None:
+        #     local_bending_radius['text'] = "Local bending radius: Unknown"
+        #     local_bending_radius['color'] = c_warning
+        #     ahead_bending_angle['text'] = "Ahead bending angle: Unknown"
+        #     ahead_bending_angle['color'] = c_warning
+        # else:
+        #     local_bending_radius['text'] = \
+        #         "Local bending radius: {:.0f} m".format(
+        #             self.lines.local_bend_radius)
+        #
+        #     ahead_bending_angle['text'] = \
+        #         "Ahead bending angle: {:.1f} deg".format(
+        #             self.lines.ahead_bend_angle)
+        # @staticmethod
+        # def _bend_radius(p, y):
+        #     """"""
+        #     A = p[0] / Y_METER_PER_PIXEL ** 2 * X_METER_PER_PIXEL
+        #     B = p[1] / Y_METER_PER_PIXEL * X_METER_PER_PIXEL
+        #
+        #     return (1 + (2 * A * y[-1] + B) ** 2) ** 1.5 / (2 * A)
+        #
+        # @staticmethod
+        # def _bend_angle(x, y):
+        #     """"""
+        #     bend_angle = np.arctan((x[0] - x[2]) / (y[2] - y[0])
+        #                            * X_METER_PER_PIXEL / Y_METER_PER_PIXEL)
+        #
+        #     return bend_angle * 180 / np.pi
 
         y_text += y_text_space
         cv2.putText(new_img, local_bending_radius['text'], (x_text, y_text),

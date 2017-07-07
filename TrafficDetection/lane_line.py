@@ -1,375 +1,152 @@
 #!/usr/bin/python
 """
-This file holds three classes:
+Class:
+    - LaneLine()
 
-CurveLine:
-    Parent class of TwinLine and LaneLine.
-
-LaneLine:
-    single-line.
-
-TwinLine:
-    Double-line.
+Functions:
+    - find_peaks()
+    - sample_lines()
 
 """
-from abc import abstractmethod
-
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.optimize import least_squares
 
 
-DEBUG_LINE = False
+class LaneLine(object):
+    """Lane line in the bird's eye view"""
+    def __init__(self, y, order=2, max_fail=25):
+        """Initialization
 
-INF = 1.0e21
-Y_METER_PER_PIXEL = 30.0 / 720  # meters per pixel in y dimension
-X_METER_PER_PIXEL = 3.7 / 900  # meters per pixel in x dimension
-
-
-class CurveLine(object):
-    """CurveLine class"""
-    def __init__(self, y, order=2):
-        """Instantiate the CurveLine class
-
-        :param y: 1-D array-like
-            Vertical coordinates of the line.
-            use in fitting x=f(y)
         :param order: int
             Order of the polynomial fit.
         """
-        # polynomial coefficients for the current fit
-        self.order = order
-        self.p = np.array([])
-
-        self.y = np.asarray(y)
-        self.x = np.array([])
-
-        self.p_hst = []
-        self.x_hst = []
-
-        self.local_bend_radius = None
-        self.ahead_bend_angle = None
-
-    @abstractmethod
-    def search(self, img):
-        """Search points which belong to lines in an image"""
-        raise NotImplementedError
-
-
-class TwinLine(CurveLine):
-    """TwinLine class"""
-    def __init__(self, y, div=0.5):
-        """Initialize the TwinLine class
-
-        :param y: 1D array like
-            Vertical coordinates of the line.
-            use in fitting x=f(y)
-        :param div: float, 0.0 < div < 1.0
-            The location to divide the left and right part of an image.
-        """
-        super().__init__(y)
-
-        # Left and right LaneLine objects
-        self.left = LaneLine(y)
-        self.right = LaneLine(y)
-        self.div = div
-        self.is_parallel = False
-
-        # distance in meters of vehicle center from the line
-        self.left_space = None
-        self.right_space = None
-
-    def search(self, img):
-        """Search lines in an image
-
-        :param img: numpy.ndarray
-            Original image.
-        """
-        width = img.shape[1]
-
-        self.left.search(img, x_lim=(0.0, self.div))
-        self.right.search(img, x_lim=(self.div, 1.0))
-
-        if DEBUG_LINE:
-            fig, ax = plt.subplots(figsize=(14, 8))
-            ax.imshow(img, cmap='gray')
-            ax.scatter(self.left.x_detected, self.left.y_detected, color='green', marker='*', s=200)
-            ax.scatter(self.right.x_detected, self.right.y_detected, color='blue', marker='*', s=200)
-            if self.left.x.any():
-                ax.plot(self.left.x, self.left.y, '--', color='purple', lw=10, alpha=0.7)
-            if self.left.y.any():
-                ax.plot(self.right.x, self.right.y, '--', color='purple', lw=10, alpha=0.7)
-
-            plt.tight_layout()
-            ### plt.savefig('output_images/line_fit.png')
-            plt.show()
-
-        # The local bend radius and ahead bend angle are calculated by
-        # the average value if both lines have the average poly-fit.
-        # Otherwise, they will only follow the only line that has the
-        # average poly-fit.
-        if self.left.ave_p.any() and self.right.ave_p.any():
-            self.local_bend_radius = \
-                (self.left.local_bend_radius + self.right.local_bend_radius) / 2.0
-            self.ahead_bend_angle = \
-                (self.left.ahead_bend_angle + self.right.ahead_bend_angle) / 2.0
-            self.left_space = (width * self.div - self.left.ave_x[-1]) * X_METER_PER_PIXEL
-            self.right_space = (self.right.ave_x[-1] - width * self.div) * X_METER_PER_PIXEL
-        elif self.left.ave_p.any():
-            self.local_bend_radius = self.left.local_bend_radius
-            self.ahead_bend_angle = self.left.ahead_bend_angle
-            self.left_space = (width * self.div - self.left.ave_x[-1]) * X_METER_PER_PIXEL
-            self.right_space = None
-        elif self.right.ave_p.any():
-            self.local_bend_radius = self.right.local_bend_radius
-            self.ahead_bend_angle = self.right.ahead_bend_angle
-            self.left_space = None
-            self.right_space = (self.right.ave_x[-1] - width * self.div) * X_METER_PER_PIXEL
-
-
-class LaneLine(CurveLine):
-    """Single lane line class"""
-    def __init__(self, y, max_fail=25):
-        """Initialization
-
-        :param y: 1D array like
-            Vertical coordinates of the line.
-            use in fitting x=f(y).
-        :param max_fail: int
-            Maximum allowed poor fit before re-search the whole area.
-        """
-        super().__init__(y)
-
-        # Coordinates of the detected line pixels
-        self.x_detected = []
-        self.y_detected = []
-
         # Consecutive frames in which a good fit is not found.
         # If i_fail > max_fail, a blind search will be launched.
         # Otherwise, update_on_image method will be called.
-        self.max_fail = max_fail
-        self.i_fail = max_fail
+        self._max_fail = max_fail
+        self._i_fail = max_fail
 
-        # Were x, y detected?
-        self._detected = False
-        self.detected = False
+        self.order = order
+        self._points = None  # detected points
+        self.points = None  # points property
+        self.p_fit = None  # polynomial coefficients for the current fit
+        self.y_fit = y
+        self.x_fit = None  # x location (in pixel)
+        self.pfit_good = None  # polynomial coefficients for the last good fit
 
-        # Is current fit good?
-        self._goodness = False
-        self.goodness = False
-
-        # Average history value
-        self.ave_x = np.array([])
-        self.ave_p = np.array([])
-
-    @property
-    def goodness(self):
-        return self._goodness
-
-    @goodness.setter
-    def goodness(self, value):
-        if not isinstance(value, bool):
-            raise ValueError("value must be a Boolean.")
-        self._goodness = value
-        if not value:
-            self.i_fail += 1
-            if self.i_fail > self.max_fail:
-                self.ave_p = np.array([])
-                self.ave_x = np.array([])
-                self.ahead_bend_angle = None
-                self.local_bend_radius = None
-        else:
-            self.i_fail = 0
+        self.local_bend_radius = []
+        self.ahead_bend_angle = []
 
     @property
-    def detected(self):
-        return self._detected
+    def points(self):
+        """points getter"""
+        return self._points
 
-    @detected.setter
-    def detected(self, value):
-        if not isinstance(value, bool):
-            raise ValueError("value must be a Boolean.")
-
-        self._detected = value
-        if not value:
-            self.goodness = False
-
-    def fit(self):
-        """Fit x=f(y)."""
-
-        def func(p, y, x):
-            return p[0] * y ** 2 + p[1] * y + p[2] - x
-
-        if len(self.x_detected) == 0:
-            self.detected = False
+    @points.setter
+    def points(self, value):
+        """points setter"""
+        if value is None or len(value) == 0:
+            self.p_fit = None
+            self.x_fit = None
+            self._i_fail += 1
         else:
-            self.detected = True
+            self._points = value
+            self._fit()
 
-            # t0 = time()
-            if self.ave_p.any() and self.i_fail <= self.max_fail:
-                # Use np.polyfit for speed when searching around the
-                # trusted region.
-                self.p = np.polyfit(self.y_detected, self.x_detected, self.order)
-            else:
-                p0 = np.array([0, 1, 0])
-                res_slq = least_squares(func, p0, loss='soft_l1', f_scale=1.0,
-                                        ftol=1e-8, xtol=1e-8,
-                                        args=(self.y_detected, self.x_detected))
-                self.p = res_slq.x
+    def _fit(self):
+        """Polynomial fit"""
+        self.p_fit = np.polyfit(self.points[1], self.points[0], self.order)
+        self.x_fit = np.poly1d(self.p_fit)(self.y_fit)
+        self._i_fail = 0
 
-            # print("{:.1f} ms".format(1000*(time() - t0)))
 
-            self.x = np.poly1d(self.p)(self.y)
+def find_peaks(x, width=300, step=50, min_intensity=100,
+               background_intensity=20):
+    """Find peaks in a 1D array
 
-            if self.i_fail <= self.max_fail:
-                if self.ave_p.any():
-                    flag = self._check_consistency()
-                    i = 0
-                    length = len(self.y_detected)
-                    sample_size = int(length * 0.8)
-                    if sample_size >= 5:
-                        while flag is False and i < 20:
-                            i += 1
+    :param x: 1d array like
+        Input 1d data.
+    :param width: int
+        Width of the moving window
+    :param step: int
+        Step size of the moving window search.
+    :param min_intensity: int
+        Minimum intensity of a peak.
+    :param background_intensity: int
+        Intensity below this value is considered as background.
 
-                            sample_index = np.random.choice(
-                                np.arange(length), sample_size)
-
-                            self.p = np.polyfit(self.y_detected[sample_index],
-                                                self.x_detected[sample_index],
-                                                self.order)
-                            self.x = np.poly1d(self.p)(self.y)
-
-                            flag = self._check_consistency()
-
-                    if flag is True:
-                        self.goodness = True
-                        w = 0.2 + 0.3*float(self.i_fail/self.max_fail)
-                        self.ave_p = (1 - w) * self.ave_p + w*self.p
-                    else:
-                        self.goodness = False
-                else:
-                    raise ValueError('Not expected in this region!')
-            else:
-                self.goodness = self._check_goodness()
-                if self.goodness is True:
-                    self.ave_p = self.p
-
-            if self.ave_p.any():
-                self.ave_x = np.poly1d(self.ave_p)(self.y)
-                self.local_bend_radius = self._bend_radius(self.ave_p, self.y)
-                self.ahead_bend_angle = self._bend_angle(self.ave_x, self.y)
-
-    @staticmethod
-    def _bend_radius(p, y):
-        """"""
-        A = p[0] / Y_METER_PER_PIXEL ** 2 * X_METER_PER_PIXEL
-        B = p[1] / Y_METER_PER_PIXEL * X_METER_PER_PIXEL
-
-        return (1 + (2*A*y[-1] + B)**2)**1.5/(2*A)
-
-    @staticmethod
-    def _bend_angle(x, y):
-        """"""
-        bend_angle = np.arctan((x[0] - x[2])/(y[2] - y[0])
-                               *X_METER_PER_PIXEL/Y_METER_PER_PIXEL)
-
-        return bend_angle*180/np.pi
-
-    def _check_consistency(self):
-        """Check the consistency of the current fit"""
-        dx = self.x - self.ave_x
-        tol = 25 + 15*float(self.i_fail/self.max_fail)
-        if dx.std() > tol:
-            return False
+    :return peaks: list
+        A list of peak index.
+    """
+    peaks = []
+    i = 0
+    while i + width < len(x):
+        # We expect a sharp peak. Therefore, the intensities of most points
+        # should be not bigger than the background intensity
+        if sum(x[i:i + width] <= background_intensity) < width/2:
+            pass
         else:
-            return True
+            peak = np.argmax(x[i:(i + width)])
+            if peak == 0 or peak == width - 1:
+                # skip fake peaks
+                pass
+            elif x[i + peak] > min_intensity:
+                if i + peak not in peaks:
+                    peaks.append(i + peak)
 
-    def _check_goodness(self):
-        """Check the goodness of the current line"""
-        # Too few points detected
-        if abs(self._bend_radius(self.p, self.y)) < 100:
-            return False
+        i += step
 
-        return True
+    return peaks
 
-    def search(self, img, x_lim=(0.0, 1.0), p0=None, conv_window=10,
-               jitter=100, moving_window=50, moving_step=25,
-               min_peak_intensity=100):
-        """Search the possible points in a line
 
-        :param img: numpy.ndarray
-            Original image.
-        :param x_lim: tuple like, (left, right)
-            Fractional x boundary of the image to search.
-        :param p0: tuple like
-            Initial value of the polynomial coefficients.
-        :param conv_window: int
-            Width of the window for convolution.
-        :param jitter: int
-            Search range (in x) along the reference line.
-        :param moving_window: int
-            Size of the moving window.
-        :param moving_step: int
-            Step size of the window moving in y direction.
-        :param min_peak_intensity: int
-            Minimum intensity to be recognized as a peak.
-        """
-        width = img.shape[1]
-        height = img.shape[0]
+def sample_lines(img, width=200, step=20):
+    """Sample the possible points in lines in a binary image
 
-        # Search the whole image if the reference is not given
-        if not self.ave_p.any():
-            ref = np.vstack([np.ones(height)*int((x_lim[0] + x_lim[1])*width/2),
-                             np.arange(height)]).T
-            jitter = int((x_lim[1] - x_lim[0])*width/2)
-        else:
-            ref = np.vstack([self.ave_x, self.y]).T
+    :param img: numpy.ndarray
+        Original image.
+    :param width: int
+        Window width for a single line.
+    :param step: int
+        Step size when performing sliding window search vertically.
 
-        x = []
-        y = []
-        window = np.ones(conv_window)
-        start = height - moving_window
-        while start > 0:
-            y_center = start + int(moving_window / 2)
+    :return points: list of [[x], [y]], x and y are both lists
+        Points in lines.
+    """
+    y1 = img.shape[0]
+    y0 = y1 - int(img.shape[0]/5)
+    window = img[y0:y1, :]
 
-            x0 = int(ref[y_center, 0] - jitter)
-            if x0 < 0:
-                x0 = 0
-            x1 = int(ref[y_center, 0] + jitter)
-            if x1 > img.shape[1]:
-                x1 = img.shape[1]
-            if x1 <= 0 or x0 >= img.shape[1]:
-                start -= moving_step
-                continue
+    convolved = np.convolve(
+        np.sum(window, axis=0), np.ones(10), mode='same')
+    peaks = find_peaks(convolved)
+    points = []
+    if len(peaks) == 0:
+        return points
+    else:
+        conv_window = np.ones(10)
+        for peak0 in peaks:
+            x0 = max(0, peak0 - int(width/2))
+            x1 = min(img.shape[1], peak0 + int(width/2))
+            y1 = img.shape[0]
+            y0 = y1 - step
+            peak = peak0
+            x = []
+            y = []
+            while y0 >= 0:
+                x_sum = np.sum(img[y0:y1, x0:x1], axis=0)
+                convolved = np.convolve(x_sum, conv_window, mode='same')
 
-            img_slice = img[start:start + moving_window, x0:x1]
-            sum = np.sum(img_slice, axis=0)
-            conv = np.convolve(window, sum, mode='same')
+                if max(convolved) > 0:
+                    peak = int((np.where(convolved > 0.95 * max(convolved))[0]).mean())
+                    peak += x0
+                    x.append(peak)
+                    y.append(int(y1 - step/2))
 
-            if max(conv) > min_peak_intensity:
-                peak = (np.where(conv > 0.95*max(conv))[0]).mean()
-                x.append(peak + x0)
-                y.append(y_center)
+                y1 -= step
+                y0 -= step
 
-                ### For debug
-                # fig, ax = plt.subplots(3, 1)
-                # ax[0].imshow(img_slice)
-                # ax[0].set_xlim([0, img_slice.shape[1]])
-                # ax[1].plot(sum)
-                # ax[1].set_xlim([0, img_slice.shape[1]])
-                # ax[1].set_title('Sum', fontsize=12)
-                # ax[2].plot(conv)
-                # ax[2].scatter(peak, conv[int(peak)], c='red', s=100)
-                # ax[2].set_xlim([0, img_slice.shape[1]])
-                # ax[2].set_title('Conv', fontsize=12)
-                # plt.tight_layout()
-                # plt.show()
+                x0 = max(0, peak - int(width / 2))
+                x1 = min(img.shape[1], peak + int(width / 2))
 
-            start -= moving_step
+            points.append((x, y))
 
-        if len(x) == 0:
-            self.detected = False
-        else:
-            self.x_detected = np.asarray(x)
-            self.y_detected = np.asarray(y)
-            self.fit()
+        return points
