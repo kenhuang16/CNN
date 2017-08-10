@@ -19,12 +19,6 @@ In this project, the lane lines and vehicles on the road in a video will be iden
 
 For details, please check the [TrafficDetection](./TrafficDetection) folder.
 
-## Rover
-
-This is a project about mapping as well as sample collection and returning.
-
-For details, please check the [Rover](./Rover) folder.
-
 ## References
 
 - http://www.deeplearningbook.org/
