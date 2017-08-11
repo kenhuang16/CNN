@@ -51,4 +51,14 @@ The projected was written in Jupyter notebook, which can be found at [GermanTraf
 
 12. Access the Jupyter notebook locally from your web browser by visiting: [IPv4 Public IP of the EC2 instance]:8888
 
+13. Download data to AWS. 
+  
+    In case that login is required, you can do
+  - Simply go to the website with the data URL.
+  - Send a request to download the data on Chrome.
+  - Open up the developer-console Ctrl + Shift + C and go to the Network tab.
+  - You will see a request with the name as the title of the compressed data file.
+  - Right click it and go to Copy as -> Copy as cURL
+  - Paste the contents on AWS.
+
 13. Enjoy
