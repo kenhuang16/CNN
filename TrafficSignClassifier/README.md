@@ -59,6 +59,6 @@ The projected was written in Jupyter notebook, which can be found at [GermanTraf
   - Open up the developer-console Ctrl + Shift + C and go to the Network tab.
   - You will see a request with the name as the title of the compressed data file.
   - Right click it and go to Copy as -> Copy as cURL
-  - Paste the contents on AWS.
+  - Paste the contents on AWS with `> filename`
 
-13. Enjoy
+14. Enjoy
