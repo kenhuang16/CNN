@@ -31,12 +31,7 @@ The projected was written in Jupyter notebook, which can be found at [GermanTraf
 
 7. Copy your files to the instance.
 
-8. Log in
-   `ssh carnd@your.Public.DNS.(IPv4)`
-   
-   or
-   
-   `ssh -i key_pair.pem ubuntu@your.Public.DNS.(IPv4)`
+8. Log in via `ssh carnd@your.Public.IPv4.DNS` or `ssh -i key_pair.pem ubuntu@your.Public.IPv4.DNS`
 
 9. Upgrade or install packages
     ```sh
@@ -59,10 +54,21 @@ The projected was written in Jupyter notebook, which can be found at [GermanTraf
     ```
     
 11. Run Jupyter notebook
+  - Without key pair
+    ```sh
+    $ jupyter notebook [name of the notebook]
+    ```
+    Access the notebook locally by visiting: [IPv4 Public IP of the EC2 instance]:8888
+    
+  - with key pair
+    ```sh
+    $ jupyter notebook --ip='*' --port=8888 --no-browser
+    ```
+    Access the notebook locally by visiting: [IPv4 Public IP of the EC2 instance]:8888
+    
+    For the first time, you may need to enter the token (copy the token shown in the terminal).
 
-12. Access the Jupyter notebook locally from your web browser by visiting: [IPv4 Public IP of the EC2 instance]:8888
-
-13. Download data to AWS. 
+12. Download data to AWS. 
   
     In case that login is required, you can do
   - Simply go to the website with the data URL.
@@ -72,4 +78,4 @@ The projected was written in Jupyter notebook, which can be found at [GermanTraf
   - Right click it and go to Copy as -> Copy as cURL
   - Paste the contents on AWS with `> filename`
 
-14. Enjoy
+13. Enjoy
