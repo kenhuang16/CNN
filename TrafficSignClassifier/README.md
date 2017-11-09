@@ -33,8 +33,10 @@ The projected was written in Jupyter notebook, which can be found at [GermanTraf
 
 8. Log in
    `ssh carnd@your.Public.DNS.(IPv4)`
+   
    or
-   `ssh -i key_pair.pem ubuntu@your.Public.DNS.(IPv4)
+   
+   `ssh -i key_pair.pem ubuntu@your.Public.DNS.(IPv4)`
 
 9. Upgrade or install packages
     ```sh
