@@ -32,7 +32,9 @@ The projected was written in Jupyter notebook, which can be found at [GermanTraf
 7. Copy your files to the instance.
 
 8. Log in
-   `ssh carnd@ec2-52-58-44-132.eu-central-1.compute.amazonaws.com(your Public DNS (IPv4))`
+   `ssh carnd@your.Public.DNS.(IPv4)`
+   or
+   `ssh -i key_pair.pem ubuntu@your.Public.DNS.(IPv4)
 
 9. Upgrade or install packages
     ```sh
