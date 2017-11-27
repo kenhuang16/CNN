@@ -19,6 +19,10 @@ In this project, the lane lines and vehicles on the road in a video will be iden
 
 For details, please check the [TrafficDetection](./TrafficDetection) folder.
 
+## ResNet
+
+For details, please check the [ResNet](./ResNet) folder.
+
 ## References
 
 - http://www.deeplearningbook.org/
