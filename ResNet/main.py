@@ -1,12 +1,12 @@
 """
 
 """
-from keras_model import build_resnet
-from keras_model import build_resnet18_org
-from keras_model import build_resnet34_org
-from keras_model import build_resnet50_org
-from keras_model import build_resnet101_org
-from keras_model import build_resnet152_org
+from keras_resnet import build_resnet
+from keras_resnet import build_resnet18_org
+from keras_resnet import build_resnet34_org
+from keras_resnet import build_resnet50_org
+from keras_resnet import build_resnet101_org
+from keras_resnet import build_resnet152_org
 
 
 if __name__ == "__main__":
