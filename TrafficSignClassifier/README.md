@@ -17,41 +17,58 @@ The projected was written in Jupyter notebook, which can be found at [GermanTraf
 
 ## Working on AWS GPU
 
-1. You will need an AWS account with permission to use g2-2xlarge.
+1. You will need an AWS account with permission to use EC2 GPU instances;
 
-2. Select "udacity-carnd" in the community AMI (not necessary, but there is a setup environment).
+2. Select an AMI (with setup environment), e.g. udacity-carnd;
 
-3. Select the instance type: "g2-2xlarge".
+3. Select an GPU instance type, e.g. g3.4xlarge;
  
-4. Adjust the storage size (if necessary, at least 16 GB).
+4. Adjust the storage size (if necessary);
 
-5. Configure the security group. For Jupyter notebook, you will need add a TCP port 8888.
+5. Configure the security group. For Jupyter notebook, you will need add a TCP port 8888;
 
 6. Launch the instance.
 
 7. Copy your files to the instance.
 
-8. Log in
-   `ssh carnd@ec2-52-58-44-132.eu-central-1.compute.amazonaws.com(your Public DNS (IPv4))`
+8. Log in via `ssh carnd@your.Public.IPv4.DNS` or `ssh -i key_pair.pem ubuntu@your.Public.IPv4.DNS`
 
 9. Upgrade or install packages
-    ```
-    pip install scikit-learn --upgrade
-    pip install tensorflow-gpu
-    pip install tensorflow-gpu --upgrade
+    ```sh
+    $ pip install --upgrade pip
+    $ pip install tensorflow-gpu
+    $ pip install tensorflow-gpu --upgrade
+    $ pip install keras
+    $ pip install keras --upgrade
     ```
 10. Solve the CUDA problem :(
     ```
-    sudo apt-get remove nvidia-*
-    wget http://us.download.nvidia.com/XFree86/Linux-x86_64/367.57/NVIDIA-Linux-x86_64-367.57.run
-    sudo bash ./NVIDIA-Linux-x86_64-367.57.run  --dkms
+    $ sudo apt-get remove nvidia-*
+    $ wget http://us.download.nvidia.com/XFree86/Linux-x86_64/367.57/NVIDIA-Linux-x86_64-367.57.run
+    $ sudo bash ./NVIDIA-Linux-x86_64-367.57.run  --dkms
     ```
-
+    Solve the cudnn program :(  https://yangcha.github.io/Install-CUDA8/
+    ```
+    $ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libcudnn6_6.0.21-1%2Bcuda8.0_amd64.deb
+    $ sudo dpkg -i libcudnn6_6.0.21-1+cuda8.0_amd64.deb
+    ```
+    
 11. Run Jupyter notebook
+  - Without key pair
+    ```sh
+    $ jupyter notebook [name of the notebook]
+    ```
+    Access the notebook locally by visiting: [IPv4 Public IP of the EC2 instance]:8888
+    
+  - with key pair
+    ```sh
+    $ jupyter notebook --ip='*' --port=8888 --no-browser
+    ```
+    Access the notebook locally by visiting: [IPv4 Public IP of the EC2 instance]:8888
+    
+    For the first time, you may need to enter the token (copy the token shown in the terminal).
 
-12. Access the Jupyter notebook locally from your web browser by visiting: [IPv4 Public IP of the EC2 instance]:8888
-
-13. Download data to AWS. 
+12. Download data to AWS. 
   
     In case that login is required, you can do
   - Simply go to the website with the data URL.
@@ -61,4 +78,4 @@ The projected was written in Jupyter notebook, which can be found at [GermanTraf
   - Right click it and go to Copy as -> Copy as cURL
   - Paste the contents on AWS with `> filename`
 
-14. Enjoy
+13. Enjoy
