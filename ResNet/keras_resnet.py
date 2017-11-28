@@ -5,9 +5,6 @@ The ResNet models in the paper
 (http://arxiv.org/abs/1512.03385)
 
 implemented in Keras.
-
-For the original ResNet implementation, the only difference is that
-the drop-out layer is used here for regularization.
 """
 from keras.layers import Input
 from keras.layers import Conv2D
@@ -16,17 +13,16 @@ from keras.layers import Activation
 from keras.layers import Add
 from keras.layers import MaxPooling2D
 from keras.layers import Dense
-from keras.layers import Dropout
 from keras.layers import GlobalAveragePooling2D
 from keras.models import Model
-
-from keras.initializers import glorot_uniform
+from keras import regularizers
+from keras.initializers import he_normal
 
 
 BLOCK_NAMES = [chr(x) for x in range(ord('a'), ord('z') + 1)]
 
 
-def identity_block(X, filters, stage, block,
+def identity_block(X, filters, stage, block, weight_decay,
                    is_first_stage=False,
                    is_first_stage_layer=False):
     """Implementation of the identity block
@@ -38,6 +34,8 @@ def identity_block(X, filters, stage, block,
         Used to name the layers.
     :param block: integer
         Used to name the layers.
+    :param weight_decay: float
+        Strength of L2 regularization.
     :param is_first_stage: bool
     :param is_first_stage_layer: bool
         The first layer of a stage (except for the first stage after
@@ -60,18 +58,23 @@ def identity_block(X, filters, stage, block,
     if is_first_stage is False and is_first_stage_layer is True:
         strides = (2, 2)
         X_shortcut = Conv2D(filters=filters, kernel_size=(1, 1), strides=(2, 2),
+                            kernel_regularizer=regularizers.l2(weight_decay),
                             name=conv_name_base + '1',
-                            kernel_initializer=glorot_uniform())(X_shortcut)
+                            kernel_initializer=he_normal())(X_shortcut)
         X_shortcut = BatchNormalization(axis=3, name=bn_name_base + '1')(X_shortcut)
 
     X = Conv2D(filters=filters, kernel_size=(3, 3), strides=strides, padding='same',
-               name=conv_name_base + '2a', kernel_initializer=glorot_uniform())(X)
+               name=conv_name_base + '2a',
+               kernel_regularizer=regularizers.l2(weight_decay),
+               kernel_initializer=he_normal())(X)
     X = BatchNormalization(axis=3, name=bn_name_base + '2a')(X)
     X = Activation('relu', name=conv_name_base + '2a_relu')(X)
 
     # Second component of main path
     X = Conv2D(filters=filters, kernel_size=(3, 3), strides=(1, 1), padding='same',
-               name=conv_name_base + '2b', kernel_initializer=glorot_uniform())(X)
+               name=conv_name_base + '2b',
+               kernel_regularizer=regularizers.l2(weight_decay),
+               kernel_initializer=he_normal())(X)
     X = BatchNormalization(axis=3, name=bn_name_base + '2b')(X)
     X = Activation('relu', name=conv_name_base + '2b_relu')(X)
 
@@ -83,7 +86,7 @@ def identity_block(X, filters, stage, block,
     return X
 
 
-def bottleneck_block(X, filters, stage, block,
+def bottleneck_block(X, filters, stage, block, weight_decay,
                      is_first_stage=False,
                      is_first_stage_layer=False):
     """Implementation of the bottleneck block
@@ -95,6 +98,8 @@ def bottleneck_block(X, filters, stage, block,
         Used to name the layers.
     :param block: integer
         Used to name the layers.
+    :param weight_decay: float
+        Strength of L2 regularization.
     :param is_first_stage: bool
     :param is_first_stage_layer: bool
         The first layer of a stage (except for the first stage after
@@ -120,23 +125,30 @@ def bottleneck_block(X, filters, stage, block,
 
         X_shortcut = Conv2D(filters=filters * 4, kernel_size=(1, 1),
                             strides=strides, name=conv_name_base + '1',
-                            kernel_initializer=glorot_uniform())(X_shortcut)
+                            kernel_regularizer=regularizers.l2(weight_decay),
+                            kernel_initializer=he_normal())(X_shortcut)
         X_shortcut = BatchNormalization(axis=3, name=bn_name_base + '1')(X_shortcut)
 
     X = Conv2D(filters=filters, kernel_size=(1, 1), strides=strides,
-               name=conv_name_base + '2a', kernel_initializer=glorot_uniform())(X)
+               name=conv_name_base + '2a',
+               kernel_regularizer=regularizers.l2(weight_decay),
+               kernel_initializer=he_normal())(X)
     X = BatchNormalization(axis=3, name=bn_name_base + '2a')(X)
     X = Activation('relu', name=conv_name_base + '2a_relu')(X)
 
     # Second component of main path
     X = Conv2D(filters=filters, kernel_size=(3, 3), strides=(1, 1), padding='same',
-               name=conv_name_base + '2b', kernel_initializer=glorot_uniform())(X)
+               name=conv_name_base + '2b',
+               kernel_regularizer=regularizers.l2(weight_decay),
+               kernel_initializer=he_normal())(X)
     X = BatchNormalization(axis=3, name=bn_name_base + '2b')(X)
     X = Activation('relu', name=conv_name_base + '2b_relu')(X)
 
     # Third component of main path
     X = Conv2D(filters=4*filters, kernel_size=(1, 1), strides=(1, 1),
-               name=conv_name_base + '2c', kernel_initializer=glorot_uniform())(X)
+               name=conv_name_base + '2c',
+               kernel_regularizer=regularizers.l2(weight_decay),
+               kernel_initializer=he_normal())(X)
     X = BatchNormalization(axis=3, name=bn_name_base + '2c')(X)
     X = Activation('relu', name=conv_name_base + '2c_relu')(X)
 
@@ -149,7 +161,7 @@ def bottleneck_block(X, filters, stage, block,
 
 
 def build_resnet(input_shape, num_classes, stage_blocks, filters=64,
-                 bottleneck=True,
+                 weight_decay=1e-4, bottleneck=True,
                  first_kernels=(3, 3), first_strides=(1, 1),
                  max_pool_sizes=None, max_pool_strides=None):
     """Build the ResNet
@@ -163,6 +175,8 @@ def build_resnet(input_shape, num_classes, stage_blocks, filters=64,
     :param filters: integer
         Number of filters in the starting stage. The number of filters
         increase by a factor of two when advancing to the next stage.
+    :param weight_decay: float
+        Strength of L2 regularization.
     :param bottleneck: bool
         True for using the bottleneck block and False for using the
         identity block.
@@ -182,7 +196,8 @@ def build_resnet(input_shape, num_classes, stage_blocks, filters=64,
     # entrance block
     X = Conv2D(filters=filters, kernel_size=first_kernels,
                strides=first_strides, padding='same', name='conv1',
-               kernel_initializer=glorot_uniform())(inputs)
+               kernel_regularizer=regularizers.l2(weight_decay),
+               kernel_initializer=he_normal())(inputs)
     X = BatchNormalization(axis=3, name='bn_conv1')(X)
     X = Activation('relu', name='conv1_relu')(X)
     if max_pool_sizes is not None:
@@ -203,19 +218,19 @@ def build_resnet(input_shape, num_classes, stage_blocks, filters=64,
             block_idx = j
 
             if bottleneck is True:
-                X = bottleneck_block(X, filters, stage_idx, block_idx,
+                X = bottleneck_block(X, filters, stage_idx, block_idx, weight_decay,
                                      is_first_stage, is_first_stage_layer)
             else:
-                X = identity_block(X, filters, stage_idx, block_idx,
+                X = identity_block(X, filters, stage_idx, block_idx, weight_decay,
                                    is_first_stage, is_first_stage_layer)
 
         filters *= 2
 
     # classifier block
     X = GlobalAveragePooling2D(name='avg_pool')(X)
-    X = Dropout(0.5, name='drop_out')(X)
     outputs = Dense(num_classes, activation='softmax', name='fc',
-                    kernel_initializer=glorot_uniform())(X)
+                    kernel_regularizer=regularizers.l2(weight_decay),
+                    kernel_initializer=he_normal())(X)
 
     model = Model(inputs=inputs, outputs=outputs)
 
