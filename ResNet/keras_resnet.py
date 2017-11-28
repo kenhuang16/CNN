@@ -93,7 +93,7 @@ def bottleneck_block(X, filters, stage, block, weight_decay,
 
     :param X: input tensor with shape (None, n_H_prev, n_W_prev, n_C_prev)
     :param filters: integer
-        No. of filters in the Convolutional layers.
+        No. of filters in the convolutional layers.
     :param stage: integer
         Used to name the layers.
     :param block: integer
@@ -252,17 +252,20 @@ def build_resnet34_org(num_classes):
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
 
+
 def build_resnet50_org(num_classes):
     """ResNet50"""
     return build_resnet((224, 224, 3), num_classes, stage_blocks=(3, 4, 6, 3),
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
 
+
 def build_resnet101_org(num_classes):
     """ResNet101"""
     return build_resnet((224, 224, 3), num_classes, stage_blocks=(3, 4, 23, 3),
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
+
 
 def build_resnet152_org(num_classes):
     """ResNet152"""
