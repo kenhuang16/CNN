@@ -23,6 +23,9 @@ This repository contains the **original ResNet models** (ResNet-18, ResNet-34, [
 - python3>=3.6.2
 - tensorflow>=1.3.0
 - keras>=2.0.8
+- opencv>=3.1.0
+- tqdm>=4.19.4
+- protobuf>=3.4.0
 
 ## Run
 
@@ -33,4 +36,14 @@ python cifar10.py
 ```
 
 
-### VOC2012 dataset
+### [Caltech101 dataset](http://www.vision.caltech.edu/Image_Datasets/Caltech101/)
+
+```sh
+python caltech101.py
+```
+
+### [Caltech256 dataset](https://authors.library.caltech.edu/7694/)
+
+```sh
+python caltech256.py
+```

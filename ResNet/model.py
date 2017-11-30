@@ -112,7 +112,8 @@ def train(model, X, y, epochs, batch_size, learning_rate,
           loss_history_file=None, weights_file=None, model_file=None):
     """Train the model
 
-    :param model: Keras model
+    :param model: keras.models.Model object
+        Keras model.
     :param X: numpy.ndarray
         Features.
     :param y: numpy.ndarray
@@ -123,20 +124,54 @@ def train(model, X, y, epochs, batch_size, learning_rate,
         Batch size.
     :param learning_rate: float
         Learning rate.
-    :param class_colors: tuple of tuple
-        Colors used in the mask to label different classes.
-    :param train_data_folder: string
-        Training data folder.
-    :param num_train_data: int
-        Total number of training data.
-    :param vali_data_folder: None / string
-        Validation data folder.
-    :param num_vali_data: None / int
-        Total number of validation data.
     :param weights_file: string
         File name for storing the weights of the model.
     :param loss_history_file: string
         File name for loss history.
+    :param model_file: string
+        File name for the storing the model.
+    """
+    try:
+        model.load_weights(weights_file)
+        print("\nLoaded weights from file!")
+    except OSError:
+        print("\nStart training new model!")
+
+    model.compile(optimizer=Adam(learning_rate),
+                  loss='categorical_crossentropy', metrics=['accuracy'])
+
+    normalize_rgb_images(X.astype(float))
+    num_classes = model.layers[-1].output_shape[-1]
+    y = convert_to_one_hot(y, num_classes)
+
+    history = model.fit(X, y, batch_size=batch_size, epochs=epochs,
+                        shuffle=True, validation_split=0.1)
+
+    save_history(history, loss_history_file)
+    save_model(model, model_file)
+    save_weights(model, weights_file)
+
+
+def train_generator(model, gen, epochs, steps_train, learning_rate,
+                    loss_history_file=None, weights_file=None, model_file=None):
+    """Train the model by feeding data generators
+
+    :param model: keras.models.Model object
+        Keras model.
+    :param gen: generator
+        Train data generator.
+    :param epochs: int
+        Number of epochs.
+    :param steps_train: int
+        Number of batches per epoch for train data generator.
+    :param learning_rate: float
+        Learning rate.
+    :param weights_file: string
+        File name for storing the weights of the model.
+    :param loss_history_file: string
+        File name for loss history.
+    :param model_file: string
+        File name for the storing the model.
     """
     try:
         model.load_weights(weights_file)
@@ -147,12 +182,7 @@ def train(model, X, y, epochs, batch_size, learning_rate,
     model.compile(optimizer=Adam(learning_rate),
                   loss='categorical_crossentropy', metrics=['accuracy'])
 
-    X = normalize_rgb_images(X)
-    num_classes = model.layers[-1].output_shape[-1]
-    y = convert_to_one_hot(y, num_classes)
-
-    history = model.fit(X, y, batch_size=batch_size, epochs=epochs,
-                        shuffle=True, validation_split=0.1)
+    history = model.fit_generator(gen, epochs=epochs, steps_per_epoch=steps_train)
 
     save_history(history, loss_history_file)
     save_model(model, model_file)
@@ -180,7 +210,7 @@ def evaluate(X, y, model_file, weights_file, batch_size=32):
                   loss='categorical_crossentropy', metrics=['accuracy'])
     model.load_weights(weights_file)
 
-    X = normalize_rgb_images(X)
+    normalize_rgb_images(X)
     num_classes = model.layers[-1].output_shape[-1]
     y = convert_to_one_hot(y, num_classes)
 
