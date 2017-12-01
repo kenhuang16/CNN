@@ -1,4 +1,5 @@
 """
+TODO: add validation data set (20% of the training data set)
 """
 import random
 import numpy as np
@@ -129,17 +130,19 @@ def preprocess_training_data(X_files, labels, input_shape, num_classes,
 
 class Caltech(abc.ABC):
     """Caltech dataset abstract class"""
-    def __init__(self, data_path, n_trains=30, _seed=None):
+    def __init__(self, data_path, n_trains=30, n_tests=None, seed=None):
         """Initialization
 
         :param data_path: string
             Path of the data folder.
         :param n_trains: int
             Number of training data per class.
+        :param n_tests: int / None
+            Number of test data per class. If None, then the rest data
+            are used for test.
         :param seed: int
-            Seed of the random generator.
+            Seed used for data split.
         """
-        random.seed(_seed)
         self.data_path = data_path
         self.class_names = self.get_class_names()
 
@@ -148,20 +151,23 @@ class Caltech(abc.ABC):
         self.files_test = None
         self.labels_test = None
         self.images_per_class = None
-        self.split_data(n_trains)
+        self.split_data(n_trains, n_tests, seed=seed)
 
     @abc.abstractmethod
     def get_class_names(self):
         """Get class names in a list"""
         pass
 
-    def split_data(self, n_trains, _seed=101):
+    def split_data(self, n_trains, n_tests, seed=None):
         """Split data into train, validation and test set
 
         :param n_trains: int
             Number of training data per class.
-        :param _seed: int
-            Seed for random splitting data.
+        :param n_tests: int / None
+            Number of test data per class. If None, then the rest data
+            are used for test.
+        :param seed: int
+            Seed used for data split.
         """
         files_train = []
         labels_train = []
@@ -169,7 +175,7 @@ class Caltech(abc.ABC):
         labels_test = []
         images_per_class = []
 
-        random.seed(_seed)  # fix data splitting
+        random.seed(seed)  # fix data splitting
 
         for idx, dir_name in enumerate(self.class_names):
             imgs = glob.glob(os.path.join(self.data_path, dir_name, '*.jpg'))
@@ -180,8 +186,13 @@ class Caltech(abc.ABC):
             files_train.extend(imgs[:n_trains])
             labels_train.extend(labels[:n_trains])
 
-            files_test.extend(imgs[n_trains:])
-            labels_test.extend(labels[n_trains:])
+            if n_tests is None:
+                files_test.extend(imgs[n_trains:])
+                labels_test.extend(labels[n_trains:])
+            else:
+                n_total = n_trains + n_tests
+                files_test.extend(imgs[n_trains:n_total])
+                labels_test.extend(labels[n_trains:n_total])
 
         self.files_train = np.array(files_train)
         self.labels_train = np.array(labels_train)

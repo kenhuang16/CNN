@@ -124,10 +124,10 @@ def train(model, X, y, epochs, batch_size, learning_rate,
         Batch size.
     :param learning_rate: float
         Learning rate.
-    :param weights_file: string
-        File name for storing the weights of the model.
     :param loss_history_file: string
         File name for loss history.
+    :param weights_file: string
+        File name for storing the weights of the model.
     :param model_file: string
         File name for the storing the model.
     """
@@ -166,10 +166,10 @@ def train_generator(model, gen, epochs, steps_train, learning_rate,
         Number of batches per epoch for train data generator.
     :param learning_rate: float
         Learning rate.
-    :param weights_file: string
-        File name for storing the weights of the model.
     :param loss_history_file: string
         File name for loss history.
+    :param weights_file: string
+        File name for storing the weights of the model.
     :param model_file: string
         File name for the storing the model.
     """

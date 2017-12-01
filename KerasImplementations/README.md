@@ -21,11 +21,10 @@ This repository contains the **original ResNet models** (ResNet-18, ResNet-34, [
 ## Requirements
 
 - python3>=3.6.2
-- tensorflow>=1.3.0
-- keras>=2.0.8
+- tensorflow>=1.4.0
+- keras>=2.1.2
 - opencv>=3.1.0
 - tqdm>=4.19.4
-- protobuf>=3.4.0
 
 ## Run
 

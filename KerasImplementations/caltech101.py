@@ -15,7 +15,7 @@ DEBUG = False
 if __name__ == "__main__":
     input_shape = (224, 224, 3)
     batch_size = 64
-    epochs = 10
+    epochs = 120
     learning_rate = 1e-3
 
     root_path = os.path.expanduser('~/Projects/datasets')
@@ -25,7 +25,8 @@ if __name__ == "__main__":
         pass
     data_path = os.path.join(root_path, 'caltech101')
     maybe_download_caltech101(data_path)
-    data = Caltech101(os.path.join(data_path, '101_ObjectCategories'))
+    data = Caltech101(os.path.join(data_path, '101_ObjectCategories'),
+                      n_trains=30, n_tests=50)
 
     class_names = data.get_class_names()
     data.summary()
