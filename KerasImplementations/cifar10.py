@@ -5,7 +5,6 @@ import numpy as np
 
 from keras.datasets import cifar10
 
-from data_processing import shuffle_data
 from model import train, evaluate, show_model, get_file_names
 from keras_resnet import build_resnet
 
@@ -17,8 +16,6 @@ if __name__ == "__main__":
 
     # Load data
     (X_train, y_train), (X_test, y_test) = cifar10.load_data()
-    # shuffle data
-    X_train, y_train = shuffle_data(X_train, y_train, seed=0)
 
     num_classes = len(np.unique(y_train))
     assert(num_classes == len(np.unique(y_test)))
