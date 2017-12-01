@@ -36,7 +36,7 @@ if __name__ == "__main__":
     try:
         model = keras_resnet.build_resnet50_org(len(data.class_names))
         show_model(model, model_txt_file)
-        gen_train = data.data_generator(input_shape, batch_size, 'train')
+        gen_train = data.train_data_generator(input_shape, batch_size)
         steps_train = int(len(data.files_train)/batch_size)
 
         if DEBUG is True:
