@@ -3,11 +3,10 @@ Train on Caltech256 dataset
 """
 import os
 
-from helper import maybe_download_caltech256
 from data_processing import Caltech256
+from helper import maybe_download_caltech256
 from model import train_generator, show_model, get_file_names
-import keras_resnet
-
+from networks import keras_resnet
 
 DEBUG = False
 

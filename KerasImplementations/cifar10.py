@@ -2,12 +2,10 @@
 Apply ResNet on the CIFAR-10 data set
 """
 import numpy as np
-
 from keras.datasets import cifar10
 
 from model import train, evaluate, show_model, get_file_names
-from keras_resnet import build_resnet
-
+from networks.keras_resnet import build_resnet
 
 if __name__ == "__main__":
     learning_rate = 1e-3

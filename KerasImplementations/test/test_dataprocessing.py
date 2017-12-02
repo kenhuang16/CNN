@@ -4,13 +4,14 @@ TODO: test preprocessing_training_data
 """
 import os
 import unittest
-import numpy as np
+
 import cv2
+import numpy as np
 
-from data_processing import normalize_rgb_images, crop_image, \
-                            flip_horizontally
 from data_processing import Caltech101, Caltech256
-
+from data_processing import normalize_rgb_images, crop_image, \
+    flip_horizontally
+from networks import keras_resnet
 
 ROOT_PATH = os.path.expanduser('~/Projects/datasets')
 
@@ -90,6 +91,17 @@ class TestCaltech256(unittest.TestCase):
         self.assertEqual(len(self._data.labels_train), 16384)
         self.assertEqual(len(self._data.files_test), 13396)
         self.assertEqual(len(self._data.labels_test), 13396)
+
+
+class TestBuildResNet(unittest.TestCase):
+    def test_build_resnets_not_raise_on_valid_input(self):
+        raised = False
+        try:
+            keras_resnet.build_resnet34_org(1000)
+            keras_resnet.build_resnet152_org(1000)
+        except:
+            raised = True
+        self.assertFalse(raised, 'Exception raised')
 
 
 if __name__ == "__main__":

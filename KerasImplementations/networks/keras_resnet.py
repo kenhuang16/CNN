@@ -20,15 +20,16 @@ from keras.initializers import he_normal
 
 
 BLOCK_NAMES = [chr(x) for x in range(ord('a'), ord('z') + 1)]
+BLOCK_NAMES.extend([chr(x) for x in range(ord('A'), ord('Z') + 1)])
 
 
-def identity_block(X, filters, stage, block, weight_decay,
+def identity_block(X, n_filters, stage, block, weight_decay,
                    is_first_stage=False,
                    is_first_stage_layer=False):
     """Implementation of the identity block
 
     :param X: input tensor with shape (None, n_H_prev, n_W_prev, n_C_prev)
-    :param filters: integer
+    :param n_filters: integer
         No. of filters in the Convolutional layers.
     :param stage: integer
         Used to name the layers.
@@ -57,13 +58,13 @@ def identity_block(X, filters, stage, block, weight_decay,
     strides = (1, 1)
     if is_first_stage is False and is_first_stage_layer is True:
         strides = (2, 2)
-        X_shortcut = Conv2D(filters=filters, kernel_size=(1, 1), strides=(2, 2),
+        X_shortcut = Conv2D(filters=n_filters, kernel_size=(1, 1), strides=(2, 2),
                             kernel_regularizer=regularizers.l2(weight_decay),
                             name=conv_name_base + '1',
                             kernel_initializer=he_normal())(X_shortcut)
         X_shortcut = BatchNormalization(axis=3, name=bn_name_base + '1')(X_shortcut)
 
-    X = Conv2D(filters=filters, kernel_size=(3, 3), strides=strides, padding='same',
+    X = Conv2D(filters=n_filters, kernel_size=(3, 3), strides=strides, padding='same',
                name=conv_name_base + '2a',
                kernel_regularizer=regularizers.l2(weight_decay),
                kernel_initializer=he_normal())(X)
@@ -71,7 +72,7 @@ def identity_block(X, filters, stage, block, weight_decay,
     X = Activation('relu', name=conv_name_base + '2a_relu')(X)
 
     # Second component of main path
-    X = Conv2D(filters=filters, kernel_size=(3, 3), strides=(1, 1), padding='same',
+    X = Conv2D(filters=n_filters, kernel_size=(3, 3), strides=(1, 1), padding='same',
                name=conv_name_base + '2b',
                kernel_regularizer=regularizers.l2(weight_decay),
                kernel_initializer=he_normal())(X)
@@ -86,13 +87,13 @@ def identity_block(X, filters, stage, block, weight_decay,
     return X
 
 
-def bottleneck_block(X, filters, stage, block, weight_decay,
+def bottleneck_block(X, n_filters, stage, block, weight_decay,
                      is_first_stage=False,
                      is_first_stage_layer=False):
     """Implementation of the bottleneck block
 
     :param X: input tensor with shape (None, n_H_prev, n_W_prev, n_C_prev)
-    :param filters: integer
+    :param n_filters: integer
         No. of filters in the convolutional layers.
     :param stage: integer
         Used to name the layers.
@@ -123,13 +124,13 @@ def bottleneck_block(X, filters, stage, block, weight_decay,
         if is_first_stage is True:
             strides = (2, 2)
 
-        X_shortcut = Conv2D(filters=filters * 4, kernel_size=(1, 1),
+        X_shortcut = Conv2D(filters=n_filters * 4, kernel_size=(1, 1),
                             strides=strides, name=conv_name_base + '1',
                             kernel_regularizer=regularizers.l2(weight_decay),
                             kernel_initializer=he_normal())(X_shortcut)
         X_shortcut = BatchNormalization(axis=3, name=bn_name_base + '1')(X_shortcut)
 
-    X = Conv2D(filters=filters, kernel_size=(1, 1), strides=strides,
+    X = Conv2D(filters=n_filters, kernel_size=(1, 1), strides=strides,
                name=conv_name_base + '2a',
                kernel_regularizer=regularizers.l2(weight_decay),
                kernel_initializer=he_normal())(X)
@@ -137,7 +138,7 @@ def bottleneck_block(X, filters, stage, block, weight_decay,
     X = Activation('relu', name=conv_name_base + '2a_relu')(X)
 
     # Second component of main path
-    X = Conv2D(filters=filters, kernel_size=(3, 3), strides=(1, 1), padding='same',
+    X = Conv2D(filters=n_filters, kernel_size=(3, 3), strides=(1, 1), padding='same',
                name=conv_name_base + '2b',
                kernel_regularizer=regularizers.l2(weight_decay),
                kernel_initializer=he_normal())(X)
@@ -145,7 +146,7 @@ def bottleneck_block(X, filters, stage, block, weight_decay,
     X = Activation('relu', name=conv_name_base + '2b_relu')(X)
 
     # Third component of main path
-    X = Conv2D(filters=4*filters, kernel_size=(1, 1), strides=(1, 1),
+    X = Conv2D(filters=4*n_filters, kernel_size=(1, 1), strides=(1, 1),
                name=conv_name_base + '2c',
                kernel_regularizer=regularizers.l2(weight_decay),
                kernel_initializer=he_normal())(X)
@@ -160,7 +161,7 @@ def bottleneck_block(X, filters, stage, block, weight_decay,
     return X
 
 
-def build_resnet(input_shape, num_classes, stage_blocks, filters=64,
+def build_resnet(input_shape, num_classes, stage_blocks, n_filters=64,
                  weight_decay=1e-4, bottleneck=True,
                  first_kernels=(3, 3), first_strides=(1, 1),
                  max_pool_sizes=None, max_pool_strides=None):
@@ -172,7 +173,7 @@ def build_resnet(input_shape, num_classes, stage_blocks, filters=64,
         Number of classes.
     :param stage_blocks: array-like
         Number of repetitions of block in each stage.
-    :param filters: integer
+    :param n_filters: integer
         Number of filters in the starting stage. The number of filters
         increase by a factor of two when advancing to the next stage.
     :param weight_decay: float
@@ -194,7 +195,7 @@ def build_resnet(input_shape, num_classes, stage_blocks, filters=64,
     inputs = Input(input_shape, name='input')
 
     # entrance block
-    X = Conv2D(filters=filters, kernel_size=first_kernels,
+    X = Conv2D(filters=n_filters, kernel_size=first_kernels,
                strides=first_strides, padding='same', name='conv1',
                kernel_regularizer=regularizers.l2(weight_decay),
                kernel_initializer=he_normal())(inputs)
@@ -218,13 +219,13 @@ def build_resnet(input_shape, num_classes, stage_blocks, filters=64,
             block_idx = j
 
             if bottleneck is True:
-                X = bottleneck_block(X, filters, stage_idx, block_idx, weight_decay,
+                X = bottleneck_block(X, n_filters, stage_idx, block_idx, weight_decay,
                                      is_first_stage, is_first_stage_layer)
             else:
-                X = identity_block(X, filters, stage_idx, block_idx, weight_decay,
+                X = identity_block(X, n_filters, stage_idx, block_idx, weight_decay,
                                    is_first_stage, is_first_stage_layer)
 
-        filters *= 2
+        n_filters *= 2
 
     # classifier block
     X = GlobalAveragePooling2D(name='avg_pool')(X)
@@ -239,36 +240,40 @@ def build_resnet(input_shape, num_classes, stage_blocks, filters=64,
 
 def build_resnet18_org(num_classes):
     """ResNet18"""
-    return build_resnet((224, 224, 3), num_classes, stage_blocks=(2, 2, 2, 2),
-                        bottleneck=False,
+    return build_resnet((224, 224, 3), num_classes, (2, 2, 2, 2), bottleneck=False,
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
 
 
 def build_resnet34_org(num_classes):
     """ResNet34"""
-    return build_resnet((224, 224, 3), num_classes, stage_blocks=(3, 4, 6, 3),
-                        bottleneck=False,
+    return build_resnet((224, 224, 3), num_classes, (3, 4, 6, 3), bottleneck=False,
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
 
 
 def build_resnet50_org(num_classes):
     """ResNet50"""
-    return build_resnet((224, 224, 3), num_classes, stage_blocks=(3, 4, 6, 3),
+    return build_resnet((224, 224, 3), num_classes, (3, 4, 6, 3),
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
 
 
 def build_resnet101_org(num_classes):
     """ResNet101"""
-    return build_resnet((224, 224, 3), num_classes, stage_blocks=(3, 4, 23, 3),
+    return build_resnet((224, 224, 3), num_classes, (3, 4, 23, 3),
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
 
 
 def build_resnet152_org(num_classes):
     """ResNet152"""
-    return build_resnet((224, 224, 3), num_classes, stage_blocks=(3, 8, 36, 3),
+    return build_resnet((224, 224, 3), num_classes, (3, 8, 36, 3),
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
+
+
+if __name__ == "__main__":
+    # ResNet50 (1000 classes) should have 25.6 M parameters
+    model = build_resnet50_org(1000)
+    model.summary()
