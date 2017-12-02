@@ -19,9 +19,11 @@ In this project, the lane lines and vehicles on the road in a video will be iden
 
 For details, please check the [TrafficDetection](./TrafficDetection) folder.
 
-## ResNet
+## KerasImplementations
 
-For details, please check the [ResNet](./ResNet) folder.
+Implementations of different CNN structures in Keras.
+
+For details, please check the [KerasImplementations](./KerasImplementations) folder.
 
 ## References
 
