@@ -94,11 +94,11 @@ def flip_horizontally(img):
     return np.flip(img, axis=0)
 
 
-def preprocess_training_data(X_files, labels, input_shape, num_classes,
+def preprocess_training_data(image_files, labels, input_shape, num_classes,
                              indices=None):
     """Data cropping, augmentation and normalization
 
-    :param X_files: array of strings
+    :param image_files: array of strings
         File paths.
     :param labels: array of integers
         Class indices.
@@ -119,7 +119,7 @@ def preprocess_training_data(X_files, labels, input_shape, num_classes,
 
     X = np.empty((len(indices), *input_shape), dtype=float)
     for i, idx in enumerate(indices):
-        X[i, :, :, :] = crop_image(cv2.imread(X_files[idx]), input_shape[0])
+        X[i, :, :, :] = crop_image(cv2.imread(image_files[idx]), input_shape[0])
         if random.random() > 0.5:
             flip_horizontally(X)
 
@@ -146,9 +146,9 @@ class Caltech(abc.ABC):
         self.data_path = data_path
         self.class_names = self.get_class_names()
 
-        self.files_train = None  # image files' full paths
+        self.images_train = None  # image files' full paths
         self.labels_train = None  # y label (indices of the classes)
-        self.files_test = None
+        self.images_test = None
         self.labels_test = None
         self.images_per_class = None
         self.split_data(n_trains, n_tests, seed=seed)
@@ -169,9 +169,9 @@ class Caltech(abc.ABC):
         :param seed: int
             Seed used for data split.
         """
-        files_train = []
+        images_train = []
         labels_train = []
-        files_test = []
+        images_test = []
         labels_test = []
         images_per_class = []
 
@@ -183,20 +183,20 @@ class Caltech(abc.ABC):
             random.shuffle(imgs)
             labels = [idx]*len(imgs)
 
-            files_train.extend(imgs[:n_trains])
+            images_train.extend(imgs[:n_trains])
             labels_train.extend(labels[:n_trains])
 
             if n_tests is None:
-                files_test.extend(imgs[n_trains:])
+                images_test.extend(imgs[n_trains:])
                 labels_test.extend(labels[n_trains:])
             else:
                 n_total = n_trains + n_tests
-                files_test.extend(imgs[n_trains:n_total])
+                images_test.extend(imgs[n_trains:n_total])
                 labels_test.extend(labels[n_trains:n_total])
 
-        self.files_train = np.array(files_train)
+        self.images_train = np.array(images_train)
         self.labels_train = np.array(labels_train)
-        self.files_test = np.array(files_test)
+        self.images_test = np.array(images_test)
         self.labels_test = np.array(labels_test)
         self.images_per_class = np.array(images_per_class)
 
@@ -209,8 +209,8 @@ class Caltech(abc.ABC):
               format(self.images_per_class.min(),
                      self.images_per_class.max(),
                      int(np.median(self.images_per_class))))
-        print("Number of training data: {}".format(len(self.files_train)))
-        print("Number of test data: {}".format(len(self.files_test)))
+        print("Number of training data: {}".format(len(self.images_train)))
+        print("Number of test data: {}".format(len(self.images_test)))
 
     def train_data_generator(self, input_shape, batch_size):
         """Batch training data generator
@@ -225,9 +225,9 @@ class Caltech(abc.ABC):
 
         :return: batches of (images, labels)
         """
-        n = int(len(self.files_train) / batch_size)
+        n = int(len(self.images_train) / batch_size)
         while 1:
-            X_files, labels = shuffle_data(self.files_train, self.labels_train)
+            X_files, labels = shuffle_data(self.images_train, self.labels_train)
             for i in range(n):
                 indices = [i*batch_size + j for j in range(batch_size)]
                 X, y = preprocess_training_data(

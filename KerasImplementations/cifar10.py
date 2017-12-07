@@ -30,8 +30,8 @@ if __name__ == "__main__":
         model_blocks, 'resnet_small')
 
     try:
-        model = build_resnet(input_shape, num_classes, stage_blocks=model_blocks,
-                             filters=16, bottleneck=False)
+        model = build_resnet(input_shape, num_classes, model_blocks,
+                             n_filters=16, bottleneck=False)
         show_model(model, model_txt_file)
         train(model, X_train, y_train, epochs, batch_size, learning_rate,
               loss_history_file=loss_history_file,

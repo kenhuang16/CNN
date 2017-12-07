@@ -48,19 +48,19 @@ class TestCaltech101(unittest.TestCase):
         self.assertEqual(class_names[0], 'Faces')
 
     def test_split_data(self):
-        self.assertEqual(len(self._data.files_train), 3030)
+        self.assertEqual(len(self._data.images_train), 3030)
         self.assertEqual(len(self._data.labels_train), 3030)
-        self.assertEqual(len(self._data.files_test), 5647)
+        self.assertEqual(len(self._data.images_test), 5647)
         self.assertEqual(len(self._data.labels_test), 5647)
 
     def test_crop_image(self):
-        img = crop_image(cv2.imread(self._data.files_train[0]), 224)
+        img = crop_image(cv2.imread(self._data.images_train[0]), 224)
         self.assertEqual(img.shape, (224, 224, 3))
 
-        img = crop_image(cv2.imread(self._data.files_train[500]), 224)
+        img = crop_image(cv2.imread(self._data.images_train[500]), 224)
         self.assertEqual(img.shape, (224, 224, 3))
 
-        img = crop_image(cv2.imread(self._data.files_train[1000]), 224)
+        img = crop_image(cv2.imread(self._data.images_train[1000]), 224)
         self.assertEqual(img.shape, (224, 224, 3))
 
         # cv2.imshow('image', img)
@@ -87,9 +87,9 @@ class TestCaltech256(unittest.TestCase):
         self.assertEqual(class_names[0], '001.ak47')
 
     def test_split_data(self):
-        self.assertEqual(len(self._data.files_train), 16384)
+        self.assertEqual(len(self._data.images_train), 16384)
         self.assertEqual(len(self._data.labels_train), 16384)
-        self.assertEqual(len(self._data.files_test), 13396)
+        self.assertEqual(len(self._data.images_test), 13396)
         self.assertEqual(len(self._data.labels_test), 13396)
 
 

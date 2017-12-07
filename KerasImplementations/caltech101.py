@@ -4,7 +4,6 @@ Train on Caltech101 dataset
 import os
 
 from data_processing import Caltech101
-from helper import maybe_download_caltech101
 from model import train_generator, show_model, get_file_names
 from networks import keras_resnet
 
@@ -17,15 +16,12 @@ if __name__ == "__main__":
     epochs = 120
     learning_rate = 1e-3
 
-    root_path = os.path.expanduser('~/Projects/datasets')
+    data_path = os.path.expanduser('~/Projects/datasets/caltech101/101_ObjectCategories')
     try:
-        os.makedirs(root_path)
+        os.makedirs(data_path)
     except OSError:
         pass
-    data_path = os.path.join(root_path, 'caltech101')
-    maybe_download_caltech101(data_path)
-    data = Caltech101(os.path.join(data_path, '101_ObjectCategories'),
-                      n_trains=30, n_tests=50)
+    data = Caltech101(data_path, n_trains=30, n_tests=50)
 
     class_names = data.get_class_names()
     data.summary()
@@ -37,7 +33,7 @@ if __name__ == "__main__":
         model = keras_resnet.build_resnet34_org(len(data.class_names))
         show_model(model, model_txt_file)
         gen_train = data.train_data_generator(input_shape, batch_size)
-        steps_train = int(len(data.files_train)/batch_size)
+        steps_train = int(len(data.images_train)/batch_size)
 
         if DEBUG is True:
             epochs = 2
