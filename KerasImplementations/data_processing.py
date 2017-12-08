@@ -10,6 +10,9 @@ import glob
 import cv2
 
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+
 def shuffle_data(X, y):
     """Randomly shuffle the data
 
@@ -51,21 +54,26 @@ def convert_to_one_hot(y, num_classes):
     return np.eye(num_classes)[y.reshape(-1)]
 
 
-def crop_image(img, crop_size):
+def crop_image(img, crop_size, is_training=True):
     """Crop the image to a square image with given size.
 
     :param img: numpy.ndarray
         Input image
     :param crop_size: int
         Size (w and h) of the cropped image.
+    :param is_training: bool
+        True for training data and False for validation data.
 
     :return: numpy.ndarray
         Cropped image.
     """
     # First scale the original image to three different sizes
-    scale_size = random.choice([int(crop_size*1.1),
-                                int(crop_size*1.3),
-                                int(crop_size*1.5)])
+    if is_training is True:
+        scale_size = random.choice([int(crop_size*1.1),
+                                    int(crop_size*1.3),
+                                    int(crop_size*1.5)])
+    else:
+        scale_size = crop_size
 
     # resize to make the shorter size equal to 'scale_size'
     ratio = img.shape[0] / img.shape[1]
@@ -74,9 +82,14 @@ def crop_image(img, crop_size):
     else:
         img = cv2.resize(img, (int(scale_size/ratio), scale_size))
 
-    # random crop a part with a size (crop_size, crop_size)
-    w_start = random.randint(0, img.shape[1] - crop_size)
-    h_start = random.randint(0, img.shape[0] - crop_size)
+    if is_training is True:
+        # random crop a part with a size (crop_size, crop_size)
+        w_start = random.randint(0, img.shape[1] - crop_size)
+        h_start = random.randint(0, img.shape[0] - crop_size)
+    else:
+        # crop the central part of the image
+        w_start = int((img.shape[1] - crop_size) / 2)
+        h_start = int((img.shape[0] - crop_size) / 2)
 
     return img[h_start:(h_start + crop_size),
                w_start:(w_start + crop_size)]
@@ -95,7 +108,7 @@ def flip_horizontally(img):
 
 
 def preprocess_training_data(image_files, labels, input_shape, num_classes,
-                             indices=None):
+                             indices=None, is_training=True):
     """Data cropping, augmentation and normalization
 
     :param image_files: array of strings
@@ -108,7 +121,8 @@ def preprocess_training_data(image_files, labels, input_shape, num_classes,
         Number of classes.
     :param indices: array-like / None
         Indices of the batch data (None for the whole input data).
-
+    :param is_training: bool
+        True for training data and False for validation data.
     :return X: numpy.ndarray, (None, w, h, c)
         Preprocessed features.
     :return y: numpy.ndarray, (None, num_classes)
@@ -119,7 +133,8 @@ def preprocess_training_data(image_files, labels, input_shape, num_classes,
 
     X = np.empty((len(indices), *input_shape), dtype=float)
     for i, idx in enumerate(indices):
-        X[i, :, :, :] = crop_image(cv2.imread(image_files[idx]), input_shape[0])
+        X[i, :, :, :] = crop_image(cv2.imread(image_files[idx]), input_shape[0],
+                                   is_training=is_training)
         if random.random() > 0.5:
             flip_horizontally(X)
 
@@ -130,7 +145,8 @@ def preprocess_training_data(image_files, labels, input_shape, num_classes,
 
 class Caltech(abc.ABC):
     """Caltech dataset abstract class"""
-    def __init__(self, data_path, n_trains=30, n_tests=None, seed=None):
+    def __init__(self, data_path, n_trains=30, n_tests=None,
+                 validation_train_split=0.2, seed=None):
         """Initialization
 
         :param data_path: string
@@ -140,25 +156,29 @@ class Caltech(abc.ABC):
         :param n_tests: int / None
             Number of test data per class. If None, then the rest data
             are used for test.
+        :param validation_train_split: float
+            Percentage of training images used for validation.
         :param seed: int
             Seed used for data split.
         """
         self.data_path = data_path
         self.class_names = self.get_class_names()
 
-        self.images_train = None  # image files' full paths
+        self.image_files_train = None  # image files' full paths
         self.labels_train = None  # y label (indices of the classes)
-        self.images_test = None
+        self.image_files_vali = None
+        self.labels_vali = None
+        self.image_files_test = None
         self.labels_test = None
         self.images_per_class = None
-        self.split_data(n_trains, n_tests, seed=seed)
+        self.split_data(n_trains, n_tests, validation_train_split, seed=seed)
 
     @abc.abstractmethod
     def get_class_names(self):
         """Get class names in a list"""
         pass
 
-    def split_data(self, n_trains, n_tests, seed=None):
+    def split_data(self, n_trains, n_tests, validation_train_split, seed=None):
         """Split data into train, validation and test set
 
         :param n_trains: int
@@ -166,37 +186,46 @@ class Caltech(abc.ABC):
         :param n_tests: int / None
             Number of test data per class. If None, then the rest data
             are used for test.
+        :param validation_train_split: int
+            Percentage of training images used for validation.
         :param seed: int
             Seed used for data split.
         """
-        images_train = []
+        image_files_train = []
         labels_train = []
-        images_test = []
+        image_files_vali = []
+        labels_vali = []
+        image_files_test = []
         labels_test = []
         images_per_class = []
 
         random.seed(seed)  # fix data splitting
 
+        n_valis = int(validation_train_split*n_trains)
         for idx, dir_name in enumerate(self.class_names):
-            imgs = glob.glob(os.path.join(self.data_path, dir_name, '*.jpg'))
-            images_per_class.append(len(imgs))
-            random.shuffle(imgs)
-            labels = [idx]*len(imgs)
+            image_files = glob.glob(os.path.join(self.data_path, dir_name, '*.jpg'))
+            images_per_class.append(len(image_files))
+            random.shuffle(image_files)
+            labels = [idx]*len(image_files)
 
-            images_train.extend(imgs[:n_trains])
-            labels_train.extend(labels[:n_trains])
+            image_files_vali.extend(image_files[:n_valis])
+            labels_vali.extend(labels[:n_valis])
+            image_files_train.extend(image_files[n_valis:n_trains])
+            labels_train.extend(labels[n_valis:n_trains])
 
             if n_tests is None:
-                images_test.extend(imgs[n_trains:])
+                image_files_test.extend(image_files[n_trains:])
                 labels_test.extend(labels[n_trains:])
             else:
                 n_total = n_trains + n_tests
-                images_test.extend(imgs[n_trains:n_total])
+                image_files_test.extend(image_files[n_trains:n_total])
                 labels_test.extend(labels[n_trains:n_total])
 
-        self.images_train = np.array(images_train)
+        self.image_files_train = np.array(image_files_train)
         self.labels_train = np.array(labels_train)
-        self.images_test = np.array(images_test)
+        self.image_files_vali = np.array(image_files_vali)
+        self.labels_vali = np.array(labels_vali)
+        self.image_files_test = np.array(image_files_test)
         self.labels_test = np.array(labels_test)
         self.images_per_class = np.array(images_per_class)
 
@@ -209,10 +238,11 @@ class Caltech(abc.ABC):
               format(self.images_per_class.min(),
                      self.images_per_class.max(),
                      int(np.median(self.images_per_class))))
-        print("Number of training data: {}".format(len(self.images_train)))
-        print("Number of test data: {}".format(len(self.images_test)))
+        print("Number of training data: {}".format(len(self.image_files_train)))
+        print("Number of validation data: {}".format(len(self.image_files_vali)))
+        print("Number of test data: {}".format(len(self.image_files_test)))
 
-    def train_data_generator(self, input_shape, batch_size):
+    def train_data_generator(self, input_shape, batch_size, is_training=True):
         """Batch training data generator
 
         The data will be randomly resized, cropped and then flipped
@@ -222,17 +252,26 @@ class Caltech(abc.ABC):
             Input shape for the neural network.
         :param batch_size: int
             Batch size.
+        :param is_training: bool
+            True for training data and False for validation data.
 
         :return: batches of (images, labels)
         """
-        n = int(len(self.images_train) / batch_size)
+        if is_training is True:
+            files = self.image_files_train
+            labels = self.labels_train
+        else:
+            files = self.image_files_vali
+            labels = self.labels_vali
+
+        n = int(len(files) / batch_size)
         while 1:
-            X_files, labels = shuffle_data(self.images_train, self.labels_train)
+            files_shuffled, labels_shuffled = shuffle_data(files, labels)
             for i in range(n):
                 indices = [i*batch_size + j for j in range(batch_size)]
                 X, y = preprocess_training_data(
-                    X_files, labels, input_shape, len(self.class_names),
-                    indices)
+                    files_shuffled, labels_shuffled, input_shape, len(self.class_names),
+                    indices, is_training=is_training)
 
                 yield X, y
 

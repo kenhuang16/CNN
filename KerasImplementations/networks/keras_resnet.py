@@ -238,37 +238,72 @@ def build_resnet(input_shape, num_classes, stage_blocks, n_filters=64,
     return model
 
 
-def build_resnet18_org(num_classes):
-    """ResNet18"""
-    return build_resnet((224, 224, 3), num_classes, (2, 2, 2, 2), bottleneck=False,
+def build_resnet18_org(num_classes, weight_decay=1e-4):
+    """ResNet18
+
+    :param num_classes: int
+        Number of classes to classify.
+    :param weight_decay: float
+        Strength of L2 regularization.
+    """
+    return build_resnet((224, 224, 3), num_classes, (2, 2, 2, 2),
+                        weight_decay=weight_decay, bottleneck=False,
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
 
 
-def build_resnet34_org(num_classes):
-    """ResNet34"""
-    return build_resnet((224, 224, 3), num_classes, (3, 4, 6, 3), bottleneck=False,
-                        first_kernels=(7, 7), first_strides=(2, 2),
-                        max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
+def build_resnet34_org(num_classes, weight_decay=1e-4):
+    """ResNet34
 
-
-def build_resnet50_org(num_classes):
-    """ResNet50"""
+    :param num_classes: int
+        Number of classes to classify.
+    :param weight_decay: float
+        Strength of L2 regularization.
+    """
     return build_resnet((224, 224, 3), num_classes, (3, 4, 6, 3),
+                        weight_decay=weight_decay, bottleneck=False,
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
 
 
-def build_resnet101_org(num_classes):
-    """ResNet101"""
+def build_resnet50_org(num_classes, weight_decay=1e-4):
+    """ResNet50
+
+    :param num_classes: int
+        Number of classes to classify.
+    :param weight_decay: float
+        Strength of L2 regularization.
+    """
+    return build_resnet((224, 224, 3), num_classes, (3, 4, 6, 3),
+                        weight_decay=weight_decay, bottleneck=True,
+                        first_kernels=(7, 7), first_strides=(2, 2),
+                        max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
+
+
+def build_resnet101_org(num_classes, weight_decay=1e-4):
+    """ResNet101
+
+    :param num_classes: int
+        Number of classes to classify.
+    :param weight_decay: float
+        Strength of L2 regularization.
+    """
     return build_resnet((224, 224, 3), num_classes, (3, 4, 23, 3),
+                        weight_decay=weight_decay, bottleneck=True,
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
 
 
-def build_resnet152_org(num_classes):
-    """ResNet152"""
+def build_resnet152_org(num_classes, weight_decay=1e-4):
+    """ResNet152
+
+    :param num_classes: int
+        Number of classes to classify.
+    :param weight_decay: float
+        Strength of L2 regularization.
+    """
     return build_resnet((224, 224, 3), num_classes, (3, 8, 36, 3),
+                        weight_decay=weight_decay, bottleneck=True,
                         first_kernels=(7, 7), first_strides=(2, 2),
                         max_pool_sizes=(3, 3), max_pool_strides=(2, 2))
 

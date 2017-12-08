@@ -9,12 +9,14 @@ from keras.models import model_from_json
 from data_processing import convert_to_one_hot, normalize_rgb_images
 
 
-def get_file_names(model_blocks, root_name, dir_name='save'):
+def get_file_names(model_blocks, root_name, dataset_name, dir_name='save'):
     """Get model, weights and loss history files
 
     :param model_blocks:
     :param root_name: string
         Root name of these files.
+    :param dataset_name: string
+        Name of the data set used for training.
     :param dir_name: string
         Files' directory.
 
@@ -23,8 +25,10 @@ def get_file_names(model_blocks, root_name, dir_name='save'):
     model_basename = root_name + '_' + '-'.join(map(str, model_blocks))
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
-    loss_history_file = os.path.join(dir_name, model_basename + '_loss.pkl')
-    weights_file = os.path.join(dir_name, model_basename + '_weights.h5')
+    loss_history_file = os.path.join(dir_name, model_basename + '_' +
+                                     dataset_name + '_loss.pkl')
+    weights_file = os.path.join(dir_name, model_basename + '_' +
+                                dataset_name + '_weights.h5')
     model_file = os.path.join(dir_name, model_basename + '_model.json')
     model_txt_file = os.path.join(dir_name, model_basename + '_model.txt')
 
@@ -152,7 +156,8 @@ def train(model, X, y, epochs, batch_size, learning_rate,
     save_weights(model, weights_file)
 
 
-def train_generator(model, gen, epochs, steps_train, learning_rate,
+def train_generator(model, gen, epochs, steps_train, learning_rate=1e-4,
+                    gen_vali=None, steps_vali=None,
                     loss_history_file=None, weights_file=None, model_file=None):
     """Train the model by feeding data generators
 
@@ -166,6 +171,10 @@ def train_generator(model, gen, epochs, steps_train, learning_rate,
         Number of batches per epoch for train data generator.
     :param learning_rate: float
         Learning rate.
+    :param gen_vali: generator
+        Validation data generator.
+    :param steps_vali:
+        Number of batches per epoch for validation data generator.
     :param loss_history_file: string
         File name for loss history.
     :param weights_file: string
@@ -182,7 +191,8 @@ def train_generator(model, gen, epochs, steps_train, learning_rate,
     model.compile(optimizer=Adam(learning_rate),
                   loss='categorical_crossentropy', metrics=['accuracy'])
 
-    history = model.fit_generator(gen, epochs=epochs, steps_per_epoch=steps_train)
+    history = model.fit_generator(gen, epochs=epochs, steps_per_epoch=steps_train,
+                                  validation_data=gen_vali, validation_steps=steps_vali)
 
     save_history(history, loss_history_file)
     save_model(model, model_file)

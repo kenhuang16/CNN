@@ -11,7 +11,6 @@ import numpy as np
 from data_processing import Caltech101, Caltech256
 from data_processing import normalize_rgb_images, crop_image, \
     flip_horizontally
-from networks import keras_resnet, keras_vgg
 
 ROOT_PATH = os.path.expanduser('~/Projects/datasets')
 
@@ -48,19 +47,25 @@ class TestCaltech101(unittest.TestCase):
         self.assertEqual(class_names[0], 'Faces')
 
     def test_split_data(self):
-        self.assertEqual(len(self._data.images_train), 3030)
-        self.assertEqual(len(self._data.labels_train), 3030)
-        self.assertEqual(len(self._data.images_test), 5647)
+        self.assertEqual(len(self._data.image_files_train), 2424)
+        self.assertEqual(len(self._data.labels_train), 2424)
+        self.assertEqual(len(self._data.image_files_vali), 606)
+        self.assertEqual(len(self._data.labels_vali), 606)
+        self.assertEqual(len(self._data.image_files_test), 5647)
         self.assertEqual(len(self._data.labels_test), 5647)
 
+        self.assertEqual(len(np.unique(self._data.labels_train)), 101)
+        self.assertEqual(len(np.unique(self._data.labels_vali)), 101)
+        self.assertEqual(len(np.unique(self._data.labels_test)), 101)
+
     def test_crop_image(self):
-        img = crop_image(cv2.imread(self._data.images_train[0]), 224)
+        img = crop_image(cv2.imread(self._data.image_files_train[0]), 224)
         self.assertEqual(img.shape, (224, 224, 3))
 
-        img = crop_image(cv2.imread(self._data.images_train[500]), 224)
+        img = crop_image(cv2.imread(self._data.image_files_train[500]), 224)
         self.assertEqual(img.shape, (224, 224, 3))
 
-        img = crop_image(cv2.imread(self._data.images_train[1000]), 224)
+        img = crop_image(cv2.imread(self._data.image_files_train[1000]), 224)
         self.assertEqual(img.shape, (224, 224, 3))
 
         # cv2.imshow('image', img)
@@ -87,35 +92,16 @@ class TestCaltech256(unittest.TestCase):
         self.assertEqual(class_names[0], '001.ak47')
 
     def test_split_data(self):
-        self.assertEqual(len(self._data.images_train), 16384)
-        self.assertEqual(len(self._data.labels_train), 16384)
-        self.assertEqual(len(self._data.images_test), 13396)
+        self.assertEqual(len(self._data.image_files_train), 13312)
+        self.assertEqual(len(self._data.labels_train), 13312)
+        self.assertEqual(len(self._data.image_files_vali), 3072)
+        self.assertEqual(len(self._data.labels_vali), 3072)
+        self.assertEqual(len(self._data.image_files_test), 13396)
         self.assertEqual(len(self._data.labels_test), 13396)
 
-
-class TestBuildResNet(unittest.TestCase):
-    def test_build_resnets_not_raise_on_valid_input(self):
-        raised = False
-        try:
-            keras_resnet.build_resnet34_org(1000)
-            keras_resnet.build_resnet152_org(1000)
-        except:
-            raised = True
-        self.assertFalse(raised, 'Exception raised')
-
-
-class TestBuildVgg(unittest.TestCase):
-    def test_build_vgg_not_raise_on_valid_input(self):
-        raised = False
-        try:
-            keras_vgg.build_vgg16_org(1000)
-            keras_vgg.build_vgg((80, 80, 3), 100, (2, 3, 4), (512, 512),
-                                n_filters=64, weight_decay=5e-4,
-                                dropout_probas=None,
-                                batch_normalization=False)
-        except:
-            raised = True
-        self.assertFalse(raised, 'Exception raised')
+        self.assertEqual(len(np.unique(self._data.labels_train)), 256)
+        self.assertEqual(len(np.unique(self._data.labels_vali)), 256)
+        self.assertEqual(len(np.unique(self._data.labels_test)), 256)
 
 
 if __name__ == "__main__":
