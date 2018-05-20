@@ -27,7 +27,7 @@ if __name__ == "__main__":
     # Build the model
     model_blocks = (3, 3, 3)
     model_file, weights_file, loss_history_file, model_txt_file = get_file_names(
-        model_blocks, 'resnet_small')
+        model_blocks, 'resnet_small', 'cifar10')
 
     try:
         model = build_resnet(input_shape, num_classes, model_blocks,
